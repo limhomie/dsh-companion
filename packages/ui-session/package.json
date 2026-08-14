@@ -1,0 +1,15 @@
+{
+  "name": "@dsh-companion/ui-session",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.tsx",
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@dsh-companion/connection": "workspace:*",
+    "@dsh-companion/runtime": "workspace:*",
+    "@dsh-companion/ui-shell": "workspace:*",
+    "lucide-react": "^1.31.0",
+    "react": "^18.3.1"
+  }
+}

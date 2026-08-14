@@ -1,0 +1,11 @@
+{
+  "name": "@dsh-companion/connection-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@dsh-companion/connection": "workspace:*"
+  }
+}

@@ -4,7 +4,7 @@
 
 状态：初始架构基线
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。首个可实施产品切片见 [待处理事项移动工作流提案](../.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md)。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。当前 Stage 0 实现见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)。
 
 ## 1. 目标
 
@@ -111,13 +111,13 @@ apps/
   web/                       Host 提供的响应式 PWA 入口
   native/                    Capacitor 工程和签名静态插件目录
 packages/
-  app-runtime/               客户端 Cordis 组合和路由所有权
-  platform-web/              Web 存储、可见性、深层链接和通知适配器
-  platform-capacitor/        安全存储、二维码、推送、相机和应用生命周期适配器
-  ui-mobile-layout/          手机导航和窄屏布局
-  ui-attention-inbox/        跨 Session 的待处理交互与完成通知收件箱
-  ui-hosts/                  Host 列表、配对、信任和撤销界面
-  test-runtime/              Fixture 和确定性测试载体
+  connection/                Connection Service Definition 与最小 Frame 类型
+  connection-fixture/        Stage 0 确定性 Provider
+  runtime/                   Session 与 Attention 的统一权威投影
+  ui-shell/                  Route Registry 与响应式 Shell
+  ui-inbox/                  跨 Session 待处理和结果收件箱
+  ui-session/                Session、Conversation、问题与审批界面
+  ui-settings/               Host、连接、信任与插件状态
 docs/
   architecture.md
   architecture.zh.md
@@ -385,7 +385,7 @@ Session 页面包含：
 - 直连发现只使用二维码，还是在配对安全完成后增加 mDNS。
 - 中继对加密 Envelope 的保留策略。
 - 自托管部署使用的 Push Provider 策略。
-- 能够支持独立发布客户端，同时不导入 Host 实现代码的最小上游线协议 Package。
+- 能够支持独立发布客户端，同时不导入 Host 实现代码的最小上游线协议 Package；当前 Fixture Frame 不是该 Package 的替代品。
 
 ## 16. 参考实现
 
