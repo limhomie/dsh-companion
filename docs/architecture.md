@@ -1,5 +1,7 @@
 # DSH Companion Architecture
 
+English | [中文](architecture.zh.md)
+
 Status: initial architecture baseline
 
 ## 1. Purpose

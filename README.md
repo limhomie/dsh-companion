@@ -1,5 +1,7 @@
 # DSH Companion
 
+English | [中文](README.zh.md)
+
 DSH Companion is a mobile-first web and native companion for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It lets a person monitor running sessions, answer questions, review approvals, steer work, and continue a conversation away from the computer where Harness runs.
 
 The project is currently in the architecture stage. The first deliverable is a host-served responsive web app that can be inspected in a desktop browser at mobile viewport sizes. Native iOS and Android packaging follows after the interaction and connection contracts are stable.
