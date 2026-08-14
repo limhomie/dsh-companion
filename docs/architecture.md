@@ -4,7 +4,7 @@ English | [中文](architecture.zh.md)
 
 Status: initial architecture baseline
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The first implementable product slice is the [attention-centered mobile workflow proposal](../.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The current Stage 0 implementation is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md).
 
 ## 1. Purpose
 
@@ -111,13 +111,13 @@ apps/
   web/                       Host-served responsive PWA entry
   native/                    Capacitor projects and signed static plugin catalog
 packages/
-  app-runtime/               Client Cordis composition and route ownership
-  platform-web/              Web storage, visibility, deep-link, and notification adapters
-  platform-capacitor/        Secure storage, QR, push, camera, and app lifecycle adapters
-  ui-mobile-layout/          Mobile navigation and narrow-screen layout
-  ui-attention-inbox/        Cross-session pending interaction and completion inbox
-  ui-hosts/                  Host list, pairing, trust, and revocation surfaces
-  test-runtime/              Fixtures and deterministic carrier for UI tests
+  connection/                Connection Service Definition and minimal Frame types
+  connection-fixture/        Deterministic Stage 0 Provider
+  runtime/                   Unified authoritative Session and Attention projection
+  ui-shell/                  Route Registry and responsive Shell
+  ui-inbox/                  Cross-Session pending and outcome inbox
+  ui-session/                Session, Conversation, question, and approval UI
+  ui-settings/               Host, connection, trust, and plugin status
 docs/
   architecture.md
 ```
@@ -384,7 +384,7 @@ These decisions remain intentionally unresolved until implementation evidence ex
 - Whether direct discovery uses QR only or adds mDNS after pairing security is complete.
 - The relay retention policy for encrypted envelopes.
 - The push provider strategy for self-hosted deployments.
-- The smallest upstream wire package that can support an independently released client without importing Host implementation code.
+- The smallest upstream wire package that can support an independently released client without importing Host implementation code; the current Fixture Frames do not replace it.
 
 ## 16. Reference implementations
 

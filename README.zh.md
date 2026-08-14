@@ -4,7 +4,7 @@
 
 DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的移动优先 Web 与原生伴侣客户端。用户可以离开运行 Harness 的电脑后，继续监控运行中的 Session、回答问题、处理审批、向任务追加指令以及延续对话。
 
-项目目前处于架构设计阶段。首个交付物是由 Host 提供的响应式 Web 应用，可以在电脑浏览器中使用手机视口查看。交互和连接协议稳定后，再进行 iOS 与 Android 原生打包。
+项目当前提供 Fixture 驱动的 Stage 0 响应式 Web 应用，可以在电脑浏览器中使用手机视口查看并完成待处理事项流程。它不连接真实 Harness；交互和连接协议稳定后，再接入认证直连并进行 iOS 与 Android 原生打包。
 
 ## 产品方向
 
@@ -18,7 +18,18 @@ DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 
 系统边界、插件模型、线协议要求、安全模型和交付阶段参见 [docs/architecture.zh.md](docs/architecture.zh.md)。
 
-工程修改遵循 [AGENTS.md](AGENTS.md) 和 [设计与开发流程](docs/design-workflow.zh.md)。首个计划实现的纵向切片是 [以待处理事项为中心的移动工作流](.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md)。
+工程修改遵循 [AGENTS.md](AGENTS.md) 和 [设计与开发流程](docs/design-workflow.zh.md)。首个已实现的纵向切片是 [以待处理事项为中心的移动工作流](.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)。
+
+## 本地预览
+
+需要 Node.js 22.19 以上版本、pnpm 和现代浏览器：
+
+```sh
+pnpm install
+pnpm dev
+```
+
+打开 `http://127.0.0.1:5173/`。`pnpm run check` 运行类型、Lint、单元测试和生产构建；`pnpm run test:web` 使用已安装的 Chrome 运行三种目标视口。
 
 ## 计划交付
 
@@ -30,4 +41,4 @@ DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 
 ## 当前状态
 
-本仓库尚未实现生产可用的连接或认证。测试本项目时，不要把 Harness HTTP 端点暴露到不可信网络。
+本仓库只实现 Fixture Web 预览，尚未实现生产可用的 Harness 连接或认证。测试本项目时，不要把 Harness HTTP 端点暴露到不可信网络。

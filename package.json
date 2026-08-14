@@ -1,0 +1,33 @@
+{
+  "name": "dsh-companion",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter @dsh-companion/web build",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "dev": "pnpm --filter @dsh-companion/web dev --host 127.0.0.1",
+    "lint": "oxlint .",
+    "test": "vitest run",
+    "test:web": "pnpm run build && playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "jsdom": "29.1.1",
+    "oxlint": "1.76.0",
+    "typescript": "6.0.3",
+    "vite": "^6.4.3",
+    "vitest": "4.1.8"
+  }
+}

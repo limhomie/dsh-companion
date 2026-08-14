@@ -1,0 +1,23 @@
+{
+  "name": "@dsh-companion/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@dsh-companion/connection": "workspace:*",
+    "@dsh-companion/connection-fixture": "workspace:*",
+    "@dsh-companion/runtime": "workspace:*",
+    "@dsh-companion/ui-inbox": "workspace:*",
+    "@dsh-companion/ui-session": "workspace:*",
+    "@dsh-companion/ui-settings": "workspace:*",
+    "@dsh-companion/ui-shell": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

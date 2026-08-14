@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 DSH Companion is a mobile-first web and native companion for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It lets a person monitor running sessions, answer questions, review approvals, steer work, and continue a conversation away from the computer where Harness runs.
 
-The project is currently in the architecture stage. The first deliverable is a host-served responsive web app that can be inspected in a desktop browser at mobile viewport sizes. Native iOS and Android packaging follows after the interaction and connection contracts are stable.
+The repository now contains a fixture-driven Stage 0 responsive web app that runs in a desktop browser at mobile viewport sizes and completes the attention workflow. It does not connect to a real Harness. Authenticated direct access and native packaging follow after the interaction and connection contracts are stable.
 
 ## Product direction
 
@@ -18,7 +18,18 @@ The project is currently in the architecture stage. The first deliverable is a h
 
 See [docs/architecture.md](docs/architecture.md) for the system boundaries, plugin model, wire requirements, security model, and delivery phases.
 
-Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese design workflow](docs/design-workflow.zh.md). The first planned vertical slice is the [attention-centered mobile workflow](.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md).
+Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese design workflow](docs/design-workflow.zh.md). The first implemented vertical slice is the [attention-centered mobile workflow](.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md).
+
+## Local preview
+
+Use Node.js 22.19 or newer, pnpm, and a modern browser:
+
+```sh
+pnpm install
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173/`. `pnpm run check` runs types, lint, unit tests, and the production build. `pnpm run test:web` runs the three target viewports with an installed Chrome.
 
 ## Planned delivery
 
@@ -30,4 +41,4 @@ Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese desig
 
 ## Status
 
-No production connection or authentication implementation exists in this repository yet. Do not expose a Harness HTTP endpoint to an untrusted network to test this project.
+Only the Fixture Web preview is implemented. No production Harness connection or authentication exists yet. Do not expose a Harness HTTP endpoint to an untrusted network to test this project.
