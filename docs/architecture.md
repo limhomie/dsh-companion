@@ -4,6 +4,8 @@ English | [中文](architecture.zh.md)
 
 Status: initial architecture baseline
 
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The first implementable product slice is the [attention-centered mobile workflow proposal](../.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md).
+
 ## 1. Purpose
 
 DSH Companion is a mobile-first client for DeepSeek Harness. It allows a person to supervise work that continues on a computer: observe sessions, respond to requests for attention, send or queue input, steer an active turn, stop work, and inspect results.

@@ -18,6 +18,8 @@ DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 
 系统边界、插件模型、线协议要求、安全模型和交付阶段参见 [docs/architecture.zh.md](docs/architecture.zh.md)。
 
+工程修改遵循 [AGENTS.md](AGENTS.md) 和 [设计与开发流程](docs/design-workflow.zh.md)。首个计划实现的纵向切片是 [以待处理事项为中心的移动工作流](.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md)。
+
 ## 计划交付
 
 1. 使用 Fixture 驱动的响应式 Web 外壳和交互演示。
