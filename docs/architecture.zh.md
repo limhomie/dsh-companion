@@ -4,6 +4,8 @@
 
 状态：初始架构基线
 
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。首个可实施产品切片见 [待处理事项移动工作流提案](../.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md)。
+
 ## 1. 目标
 
 DSH Companion 是 DeepSeek Harness 的移动优先客户端。它让用户可以监督电脑上持续进行的工作：查看 Session、响应待处理事项、发送或排队输入、向运行中的 Turn 追加指令、停止任务以及检查结果。

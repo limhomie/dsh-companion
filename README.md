@@ -18,6 +18,8 @@ The project is currently in the architecture stage. The first deliverable is a h
 
 See [docs/architecture.md](docs/architecture.md) for the system boundaries, plugin model, wire requirements, security model, and delivery phases.
 
+Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese design workflow](docs/design-workflow.zh.md). The first planned vertical slice is the [attention-centered mobile workflow](.agents/notes/proposed/feature/2026-08-15-attention-workflow-first-slice.md).
+
 ## Planned delivery
 
 1. Responsive fixture-driven web shell and interaction walkthrough.
