@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: initial architecture baseline
+Status: architecture baseline; loopback real connection implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The current Stage 0 implementation is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the next stage is the proposed [Host-served real Session slice](../.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the current real connection is the [Host-served real Session slice](../.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md).
 
 ## 1. Purpose
 
@@ -104,25 +104,25 @@ Everything user-visible or deployment-varying is composed through Cordis plugins
 
 ### 5.1 Companion repository ownership
 
-The planned repository layout is:
+The current repository layout is:
 
 ```text
 apps/
-  web/                       Host-served responsive PWA entry
-  native/                    Capacitor projects and signed static plugin catalog
+  web/                       Harness Client plugin graph and responsive web entry
 packages/
-  connection/                Connection Service Definition and minimal Frame types
-  connection-fixture/        Deterministic Stage 0 Provider
-  runtime/                   Unified authoritative Session and Attention projection
+  host-web/                  Loopback-restricted /companion static Host plugin
   ui-shell/                  Route Registry and responsive Shell
-  ui-inbox/                  Cross-Session pending and outcome inbox
-  ui-session/                Session, Conversation, question, and approval UI
-  ui-settings/               Host, connection, trust, and plugin status
+  ui-inbox/                  Inbox derived from Harness SessionListState
+  ui-session/                Session header, question, and approval UI
+  ui-settings/               Host, connection, and current trust scope
+scripts/
+  verify-harness.mjs         Exact checkout and version verification
+  start-harness.mjs          Patch generation and dsh web launcher
 docs/
   architecture.md
 ```
 
-Package publishing names are deferred until the repository's npm ownership and release channel are decided. Folder boundaries above describe responsibility, not final package names.
+Prerelease development consumes public packages from a sibling Harness checkout and pins an exact version and commit. Companion no longer owns the Stage 0 connection DTOs, Fixture provider, or Session runtime; keyless tests use the official Harness Fixture.
 
 ### 5.2 Harness repository ownership
 
@@ -317,6 +317,14 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Desktop browser testing at phone and tablet viewport sizes.
 - No remote Host connection and no security claims.
 
+### Phase 0.5: loopback real connection (implemented)
+
+- Harness serves `/companion/` on the same origin while retaining its existing root app.
+- Public Client Connection, API Remotes, and Client Runtime read real sessions.
+- The inbox derives from Host-authoritative snapshots and responds through upstream interaction carriers.
+- The Host plugin rejects non-`127.0.0.1` binds and inconsistent Harness package versions.
+- Read-only conversation history uses Harness's standard definitions and Runtime projection; device identity, LAN access, prompts, queues, steering, and interruption remain unavailable.
+
 ### Phase 1: authenticated direct PWA
 
 - Upstream protocol version and capability negotiation.
@@ -384,7 +392,7 @@ These decisions remain intentionally unresolved until implementation evidence ex
 - Whether direct discovery uses QR only or adds mDNS after pairing security is complete.
 - The relay retention policy for encrypted envelopes.
 - The push provider strategy for self-hosted deployments.
-- The smallest upstream wire package that can support an independently released client without importing Host implementation code; the current Fixture Frames do not replace it.
+- The complete upstream package set and protocol compatibility information for an independently released client; the current same-release source composition is not an independent release promise.
 
 ## 16. Reference implementations
 

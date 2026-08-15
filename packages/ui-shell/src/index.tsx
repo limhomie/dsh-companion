@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore, type ComponentType } from 'react'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { CircleAlert, Inbox, PanelsTopLeft, Radio } from 'lucide-react'
+import { Inbox, PanelsTopLeft, Radio } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { CompanionRuntimeService, RuntimeSnapshot } from '@dsh-companion/runtime'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ISessions } from '@deepseek-ai/dsh-client-runtime/client'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -63,16 +64,8 @@ export class UiRegistryService extends Service {
   }
 }
 
-function phaseLabel(snapshot: RuntimeSnapshot): string {
-  switch (snapshot.phase) {
-    case 'booting': return '正在启动'
-    case 'connected': return snapshot.host?.mode === 'fixture' ? '演示数据' : '已连接'
-    case 'reconnecting': return '正在重连'
-    case 'resyncing': return '正在同步'
-    case 'offline': return '已离线'
-    case 'failed': return '连接失败'
-    default: return snapshot.phase satisfies never
-  }
+function phaseLabel(connected: boolean): string {
+  return connected ? '已连接' : '正在连接，只读'
 }
 
 function activeTopLevelPath(path: string): string {
@@ -118,23 +111,30 @@ function Navigation({ routes, activePath, attentionCount, navigate, mode }: Navi
 }
 
 export interface AppShellProps {
-  runtime: CompanionRuntimeService
+  connection: ConnectionHandle
+  sessions: ISessions
   ui: UiRegistryService
 }
 
 /** Generic responsive shell over plugin-contributed top-level routes. */
-export function AppShell({ runtime, ui }: AppShellProps) {
+export function AppShell({ connection, sessions, ui }: AppShellProps) {
   const routes = useSyncExternalStore(ui.subscribe, ui.getSnapshot)
-  const snapshot = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot)
+  const host = useSyncExternalStore(
+    connection.hostDescription.subscribe,
+    connection.hostDescription.getSnapshot,
+  )
+  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const path = useBrowserPath()
   const navigate = useCallback((nextPath: string) => {
-    if (window.location.pathname === nextPath) return
-    window.history.pushState({}, '', nextPath)
+    const nextUrl = `/companion${nextPath}${window.location.search}`
+    if (`${window.location.pathname}${window.location.search}` === nextUrl) return
+    window.history.pushState({}, '', nextUrl)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, [])
   const activePath = activeTopLevelPath(path)
   const current = useMemo(() => routes.find(route => route.match(path)) ?? routes[0], [path, routes])
-  const pendingCount = snapshot.attention.filter(item => item.kind === 'question' || item.kind === 'approval').length
+  const pendingCount = sessionList.ids.filter(id => sessionList.byId[id]?.pendingInteraction !== undefined).length
+  const connected = host !== undefined
 
   useEffect(() => {
     if (window.location.pathname === '/' && routes.some(route => route.path === '/inbox')) navigate('/inbox')
@@ -149,10 +149,10 @@ export function AppShell({ runtime, ui }: AppShellProps) {
         </div>
         <Navigation routes={routes} activePath={activePath} attentionCount={pendingCount} navigate={navigate} mode="desktop" />
         <div className="sidebar-status">
-          <span className="status-dot" data-phase={snapshot.phase} />
+          <span className="status-dot" data-phase={connected ? 'connected' : 'booting'} />
           <div>
-            <strong>{snapshot.host?.name ?? '本机预览'}</strong>
-            <span>{phaseLabel(snapshot)}</span>
+            <strong>DeepSeek Harness</strong>
+            <span>{phaseLabel(connected)}</span>
           </div>
         </div>
       </aside>
@@ -163,13 +163,13 @@ export function AppShell({ runtime, ui }: AppShellProps) {
             <span className="brand-mark"><PanelsTopLeft aria-hidden="true" size={18} /></span>
             <strong>DSH Companion</strong>
           </div>
-          <span className="compact-connection"><span className="status-dot" data-phase={snapshot.phase} />{phaseLabel(snapshot)}</span>
+          <span className="compact-connection"><span className="status-dot" data-phase={connected ? 'connected' : 'booting'} />{phaseLabel(connected)}</span>
         </header>
 
-        {snapshot.phase !== 'connected' && (
+        {!connected && (
           <div className="connection-banner" role="status" data-testid="connection-banner">
-            {snapshot.phase === 'failed' ? <CircleAlert aria-hidden="true" size={18} /> : <Radio aria-hidden="true" size={18} />}
-            <span><strong>{phaseLabel(snapshot)}</strong>{snapshot.detail && ` · ${snapshot.detail}`}</span>
+            <Radio aria-hidden="true" size={18} />
+            <span><strong>{phaseLabel(false)}</strong></span>
           </div>
         )}
 
@@ -190,7 +190,11 @@ function useBrowserPath(): string {
     window.addEventListener('popstate', listener)
     return () => { window.removeEventListener('popstate', listener) }
   }, [])
-  const getSnapshot = useCallback(() => window.location.pathname, [])
+  const getSnapshot = useCallback(() => {
+    const pathname = window.location.pathname
+    if (pathname === '/companion' || pathname === '/companion/') return '/'
+    return pathname.startsWith('/companion/') ? pathname.slice('/companion'.length) : pathname
+  }, [])
   return useSyncExternalStore(subscribe, getSnapshot)
 }
 

@@ -2,9 +2,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
-import ConnectionService from '@dsh-companion/connection'
-import * as FixtureConnection from '@dsh-companion/connection-fixture'
-import CompanionRuntimeService from '@dsh-companion/runtime'
+import * as TypertRegistry from '@deepseek-ai/dsh-typert-registry/client'
+import * as Connection from '@deepseek-ai/dsh-client-connection/client'
+import * as ApiGateway from '@deepseek-ai/dsh-api-gateway/client'
+import * as ApiRemotes from '@deepseek-ai/dsh-api-remotes/client'
+import * as ClientRuntime from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import * as ConversationProjection from '@dsh-companion/conversation-projection'
 import * as InboxUi from '@dsh-companion/ui-inbox'
 import * as SessionUi from '@dsh-companion/ui-session'
 import * as SettingsUi from '@dsh-companion/ui-settings'
@@ -19,22 +23,15 @@ async function boot(): Promise<void> {
   const fibers: Fiber[] = []
 
   try {
-    const connection = ctx.plugin(ConnectionService)
-    fibers.push(connection)
-    await connection.await()
+    for (const plugin of [TypertRegistry, Connection, ApiGateway, ApiRemotes, ClientRuntime]) {
+      const fiber = ctx.plugin(plugin)
+      fibers.push(fiber)
+      await fiber.await()
+    }
 
-    const fixture = ctx.plugin(FixtureConnection, {
-      initialConnectDelayMs: 120,
-      resolveDelayMs: 900,
-      reconnectDelayMs: 700,
-      resyncDelayMs: 550,
-    })
-    fibers.push(fixture)
-    await fixture.await()
-
-    const runtime = ctx.plugin(CompanionRuntimeService)
-    fibers.push(runtime)
-    await runtime.await()
+    const conversationProjection = ctx.plugin(ConversationProjection)
+    fibers.push(conversationProjection)
+    await conversationProjection.await()
 
     const ui = ctx.plugin(UiRegistryService)
     fibers.push(ui)
@@ -46,9 +43,10 @@ async function boot(): Promise<void> {
       await fiber.await()
     }
 
+    const connection = ctx.get('connection') as ConnectionHandle
     root.render(
       <StrictMode>
-        <AppShell runtime={ctx.companionRuntime} ui={ctx.companionUi} />
+        <AppShell connection={connection} sessions={ctx.sessions} ui={ctx.companionUi} />
       </StrictMode>,
     )
   } catch (error) {

@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：初始架构基线
+状态：架构基线；回环真实连接已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。当前 Stage 0 实现见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；下一阶段见 [Harness 同源托管的真实 Session 切片提案](../.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md)。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；当前真实连接见 [Harness 同源托管的真实 Session 切片](../.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md)。
 
 ## 1. 目标
 
@@ -104,26 +104,26 @@ Host 与 Companion 都向中继建立出站连接。配对过程在两台设备�
 
 ### 5.1 Companion 仓库职责
 
-计划中的仓库结构如下：
+当前仓库结构如下：
 
 ```text
 apps/
-  web/                       Host 提供的响应式 PWA 入口
-  native/                    Capacitor 工程和签名静态插件目录
+  web/                       Harness Client 插件图和响应式 Web 入口
 packages/
-  connection/                Connection Service Definition 与最小 Frame 类型
-  connection-fixture/        Stage 0 确定性 Provider
-  runtime/                   Session 与 Attention 的统一权威投影
+  host-web/                  回环限制的 /companion 静态资源 Host 插件
   ui-shell/                  Route Registry 与响应式 Shell
-  ui-inbox/                  跨 Session 待处理和结果收件箱
-  ui-session/                Session、Conversation、问题与审批界面
-  ui-settings/               Host、连接、信任与插件状态
+  ui-inbox/                  从 Harness SessionListState 派生的收件箱
+  ui-session/                Session Header、问题与审批界面
+  ui-settings/               Host、连接与当前信任范围
+scripts/
+  verify-harness.mjs         精确 checkout 与版本校验
+  start-harness.mjs          生成 patch 并启动 dsh web
 docs/
   architecture.md
   architecture.zh.md
 ```
 
-在仓库的 npm 所有权和发布通道确定前，暂不决定 Package 的发布名称。以上目录边界描述职责，而不是最终包名。
+预发布开发通过相邻的 Harness checkout 消费公开 Package，并锁定精确版本与提交。Companion 不再拥有 Stage 0 的 Connection DTO、Fixture Provider 或 Session Runtime；无密钥测试使用 Harness 官方 Fixture。
 
 ### 5.2 Harness 仓库职责
 
@@ -318,6 +318,14 @@ Session 页面包含：
 - 在电脑浏览器中使用手机和平板视口测试。
 - 不连接远程 Host，也不作出安全性声明。
 
+### 阶段 0.5：回环真实连接（已实现）
+
+- Harness 同源提供 `/companion/`，并保留原有根页面。
+- 使用公开 Client Connection、API Remotes 与 Client Runtime 读取真实 Session。
+- 从 Host 权威快照派生收件箱，并通过上游 Interaction 应答载体提交问题与审批。
+- Host 插件拒绝非 `127.0.0.1` bind 和不一致的 Harness Package 版本。
+- 只读 Conversation 历史使用 Harness 标准 Definition 与 Runtime 投影；不提供设备身份、局域网访问、Prompt、排队、中途指令或中断操作。
+
 ### 阶段 1：经过认证的直连 PWA
 
 - 上游协议版本和能力协商。
@@ -385,7 +393,7 @@ Session 页面包含：
 - 直连发现只使用二维码，还是在配对安全完成后增加 mDNS。
 - 中继对加密 Envelope 的保留策略。
 - 自托管部署使用的 Push Provider 策略。
-- 能够支持独立发布客户端，同时不导入 Host 实现代码的最小上游线协议 Package；当前 Fixture Frame 不是该 Package 的替代品。
+- 能够支持独立发布客户端的完整上游 Package 集与协议兼容信息；当前同版本源码组合不构成独立发布承诺。
 
 ## 16. 参考实现
 

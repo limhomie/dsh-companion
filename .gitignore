@@ -1,10 +1,13 @@
 node_modules/
 dist/
+packages/host-web/web-dist/
+.tmp/
 coverage/
 playwright-report/
 test-results/
 .playwright-mcp/
 *.log
+*.tsbuildinfo
 .env
 .env.*
 !.env.example

@@ -8,13 +8,15 @@
     "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @dsh-companion/web build",
+    "build": "pnpm run verify:harness && pnpm --filter @dsh-companion/web build",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
-    "dev": "pnpm --filter @dsh-companion/web dev --host 127.0.0.1",
+    "dev": "pnpm run verify:harness && pnpm --filter @dsh-companion/web dev --host 127.0.0.1",
+    "host": "pnpm run build && node scripts/start-harness.mjs",
     "lint": "oxlint .",
     "test": "vitest run",
     "test:web": "pnpm run build && playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "pnpm run verify:harness && tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/host-web/tsconfig.json",
+    "verify:harness": "node scripts/verify-harness.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
@@ -28,6 +30,7 @@
     "oxlint": "1.76.0",
     "typescript": "6.0.3",
     "vite": "^6.4.3",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "4.1.8"
   }
 }

@@ -41,6 +41,9 @@ importers:
       vite:
         specifier: ^6.4.3
         version: 6.4.3(@types/node@22.20.1)
+      vite-tsconfig-paths:
+        specifier: ^6.1.1
+        version: 6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.1))
       vitest:
         specifier: 4.1.8
         version: 4.1.8(@types/node@22.20.1)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1))
@@ -48,17 +51,26 @@ importers:
   apps/web:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/connection':
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-api-gateway':
+        specifier: link:../../../deepseek-harness/packages/api/gateway
+        version: link:../../../deepseek-harness/packages/api/gateway
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: link:../../../deepseek-harness/packages/api/remotes
+        version: link:../../../deepseek-harness/packages/api/remotes
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: link:../../../deepseek-harness/packages/client/runtime
+        version: link:../../../deepseek-harness/packages/client/runtime
+      '@deepseek-ai/dsh-typert-registry':
+        specifier: link:../../../deepseek-harness/packages/typert/registry
+        version: link:../../../deepseek-harness/packages/typert/registry
+      '@dsh-companion/conversation-projection':
         specifier: workspace:*
-        version: link:../../packages/connection
-      '@dsh-companion/connection-fixture':
-        specifier: workspace:*
-        version: link:../../packages/connection-fixture
-      '@dsh-companion/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
+        version: link:../../packages/conversation-projection
       '@dsh-companion/ui-inbox':
         specifier: workspace:*
         version: link:../../packages/ui-inbox
@@ -78,42 +90,38 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
 
-  packages/connection:
+  packages/conversation-projection:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-client-ui-conversation':
+        specifier: link:../../../deepseek-harness/packages/client/ui-conversation
+        version: link:../../../deepseek-harness/packages/client/ui-conversation
 
-  packages/connection-fixture:
-    dependencies:
-      '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/connection':
-        specifier: workspace:*
-        version: link:../connection
-
-  packages/runtime:
-    dependencies:
-      '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/connection':
-        specifier: workspace:*
-        version: link:../connection
+  packages/host-web:
     devDependencies:
-      '@dsh-companion/connection-fixture':
-        specifier: workspace:*
-        version: link:../connection-fixture
+      '@deepseek-ai/cordis':
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
+      '@deepseek-ai/dsh-host-frontend-static':
+        specifier: link:../../../deepseek-harness/packages/host/frontend-static
+        version: link:../../../deepseek-harness/packages/host/frontend-static
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: link:../../../deepseek-harness/packages/host/webserver
+        version: link:../../../deepseek-harness/packages/host/webserver
 
   packages/ui-inbox:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/runtime':
-        specifier: workspace:*
-        version: link:../runtime
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: link:../../../deepseek-harness/packages/client/runtime
+        version: link:../../../deepseek-harness/packages/client/runtime
       '@dsh-companion/ui-shell':
         specifier: workspace:*
         version: link:../ui-shell
@@ -127,14 +135,23 @@ importers:
   packages/ui-session:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/connection':
-        specifier: workspace:*
-        version: link:../connection
-      '@dsh-companion/runtime':
-        specifier: workspace:*
-        version: link:../runtime
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: link:../../../deepseek-harness/packages/api/remotes
+        version: link:../../../deepseek-harness/packages/api/remotes
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: link:../../../deepseek-harness/packages/client/runtime
+        version: link:../../../deepseek-harness/packages/client/runtime
+      '@deepseek-ai/dsh-llm':
+        specifier: link:../../../deepseek-harness/packages/llm/llm
+        version: link:../../../deepseek-harness/packages/llm/llm
+      '@deepseek-ai/dsh-user-questions':
+        specifier: link:../../../deepseek-harness/packages/interaction/user-questions
+        version: link:../../../deepseek-harness/packages/interaction/user-questions
       '@dsh-companion/ui-shell':
         specifier: workspace:*
         version: link:../ui-shell
@@ -148,11 +165,14 @@ importers:
   packages/ui-settings:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/runtime':
-        specifier: workspace:*
-        version: link:../runtime
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: link:../../../deepseek-harness/packages/api/remotes
+        version: link:../../../deepseek-harness/packages/api/remotes
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
       '@dsh-companion/ui-shell':
         specifier: workspace:*
         version: link:../ui-shell
@@ -166,11 +186,14 @@ importers:
   packages/ui-shell:
     dependencies:
       '@deepseek-ai/cordis':
-        specifier: 4.0.1
-        version: 4.0.1
-      '@dsh-companion/runtime':
-        specifier: workspace:*
-        version: link:../runtime
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-api-remotes':
+        specifier: link:../../../deepseek-harness/packages/api/remotes
+        version: link:../../../deepseek-harness/packages/api/remotes
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: link:../../../deepseek-harness/packages/client/runtime
+        version: link:../../../deepseek-harness/packages/client/runtime
       lucide-react:
         specifier: ^1.31.0
         version: 1.31.0(react@18.3.1)
@@ -324,21 +347,6 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
-
-  '@deepseek-ai/cordis@4.0.1':
-    resolution: {integrity: sha512-YBdskTU2Po1kru3GgcUWUbkTsPMA9LkSQDAY8rBkFJeajdgcQad3QPJZE26JyK99Xb6HaASvoXg2DSUTeN/0Nw==}
-    hasBin: true
-    peerDependencies:
-      '@deepseek-ai/cordis-plugin-include': ^1.0.6
-      '@deepseek-ai/cordis-plugin-loader': ^1.0.2
-    peerDependenciesMeta:
-      '@deepseek-ai/cordis-plugin-include':
-        optional: true
-      '@deepseek-ai/cordis-plugin-loader':
-        optional: true
-
-  '@deepseek-ai/cosmokit@1.8.2':
-    resolution: {integrity: sha512-muBOKtSrUKU5m/xpq8ZXWL6hQ/jgd4PhU2PqH97bcxIiLEJfNwZOGQEx4t/aS/GgxRAR+ra9pMHPMtTHU4sqqA==}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -1024,6 +1032,9 @@ packages:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
     engines: {node: '>=6.9.0'}
 
+  globrex@0.1.2:
+    resolution: {integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==}
+
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
@@ -1241,6 +1252,16 @@ packages:
     resolution: {integrity: sha512-bLVMLPtstlZ4iMQHpFHTR7GAGj2jxi8Dg0s2h2MafAE4uSWF98FC/3MomU51iQAMf8/qDUbKWf5GxuvvVcXEhw==}
     engines: {node: '>=20'}
 
+  tsconfck@3.1.6:
+    resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+    peerDependencies:
+      typescript: ^5.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -1258,6 +1279,11 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
+
+  vite-tsconfig-paths@6.1.1:
+    resolution: {integrity: sha512-2cihq7zliibCCZ8P9cKJrQBkfgdvcFkOOc3Y02o3GWUDLgqjWsZudaoiuOwO/gzTzy17cS5F7ZPo4bsnS4DGkg==}
+    peerDependencies:
+      vite: '*'
 
   vite@6.4.3:
     resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
@@ -1536,13 +1562,6 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
-
-  '@deepseek-ai/cordis@4.0.1':
-    dependencies:
-      '@deepseek-ai/cosmokit': 1.8.2
-      '@standard-schema/spec': 1.1.0
-
-  '@deepseek-ai/cosmokit@1.8.2': {}
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -2032,6 +2051,8 @@ snapshots:
 
   gensync@1.0.0-beta.2: {}
 
+  globrex@0.1.2: {}
+
   html-encoding-sniffer@6.0.0:
     dependencies:
       '@exodus/bytes': 1.15.1
@@ -2262,6 +2283,10 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
+  tsconfck@3.1.6(typescript@6.0.3):
+    optionalDependencies:
+      typescript: 6.0.3
+
   typescript@6.0.3: {}
 
   undici-types@6.21.0: {}
@@ -2273,6 +2298,16 @@ snapshots:
       browserslist: 4.28.8
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  vite-tsconfig-paths@6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.1)):
+    dependencies:
+      debug: 4.4.3
+      globrex: 0.1.2
+      tsconfck: 3.1.6(typescript@6.0.3)
+      vite: 6.4.3(@types/node@22.20.1)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   vite@6.4.3(@types/node@22.20.1):
     dependencies:

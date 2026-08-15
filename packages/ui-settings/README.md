@@ -1,3 +1,3 @@
 # Settings UI
 
-注册 `/settings` 页面，展示当前 Host、Connection 状态、设备信任状态和插件清单。重新连接调用通用 Runtime 能力，不依赖 Fixture Provider 实现。
+注册 `/settings` 页面，展示 Harness Connection 提供的 Host 描述、真实或 Fixture 模式、回环访问限制和已装载客户端能力。页面不提供自有重连状态机或设备认证占位操作。

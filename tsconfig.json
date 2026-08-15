@@ -12,10 +12,17 @@
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
+    "paths": {
+      "@deepseek-ai/dsh-client-ui-conversation/client": [
+        "../deepseek-harness/packages/client/ui-conversation/src/client/contract/chat-nodes.ts"
+      ]
+    },
     "skipLibCheck": true,
     "strict": true,
-    "target": "ES2023",
+    "rewriteRelativeImportExtensions": false,
+    "target": "ES2024",
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx", "*.ts"]
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx", "*.ts"],
+  "exclude": ["packages/host-web"]
 }

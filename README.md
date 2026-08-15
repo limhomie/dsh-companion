@@ -2,45 +2,71 @@
 
 English | [中文](README.zh.md)
 
-DSH Companion is a mobile-first web and native companion for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It lets a person monitor running sessions, answer questions, review approvals, steer work, and continue a conversation away from the computer where Harness runs.
+DSH Companion is a mobile-first companion surface for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Harness now serves it from `/companion/` on the same origin. The current slice reads real sessions and responds to Harness questions and approvals from a desktop browser using the responsive mobile layout.
 
-The repository now contains a fixture-driven Stage 0 responsive web app that runs in a desktop browser at mobile viewport sizes and completes the attention workflow. It does not connect to a real Harness. Authenticated direct access and native packaging follow after the interaction and connection contracts are stable.
+This build is intentionally loopback-only. It validates the real Harness data path and the mobile workflow, but it is not an authenticated remote phone client. LAN, Tailscale, and public access remain blocked until device pairing, authorization, and revocation exist.
 
-## Product direction
+## Implemented
 
-- Harness remains the source of truth for agents, sessions, tools, workspaces, permissions, and durable events.
-- Companion is a client surface, not another agent runtime or session database.
-- Human attention is the primary mobile workflow: pending approvals, questions, plan reviews, failures, and completed work come before a general chat screen.
-- Host capabilities and client features compose as plugins.
-- Remote access requires device authentication and explicit authorization; network reachability is not authentication.
+- Loads Harness Typert Registry, Client Connection, API Remotes, and Client Runtime directly instead of owning a second session or interaction protocol.
+- Registers Harness's standard Conversation definitions and renders the Runtime-owned read-only history, including messages, tool activity, partial output, and failures.
+- Derives the inbox, session list, and pending state from `ctx.sessions`.
+- Responds through Harness `PendingWait.respond()`; only a Host resolved frame removes pending work.
+- Composes Inbox, Session, and Settings as independent Cordis UI plugins.
+- Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
+- Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
-## Architecture
+See the [architecture](docs/architecture.md), the [implemented real-Harness slice](.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md), the [read-only Conversation decision](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
 
-See [docs/architecture.md](docs/architecture.md) for the system boundaries, plugin model, wire requirements, security model, and delivery phases.
+## Setup
 
-Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese design workflow](docs/design-workflow.zh.md). The first implemented vertical slice is the [attention-centered mobile workflow](.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md).
+The prerelease development setup expects sibling checkouts:
 
-The proposed next stage reuses Harness's existing Client Connection and Client Runtime for a [Host-served real Session slice](.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md). It remains loopback-only on the computer; LAN phone access requires device authentication first.
+```text
+workspace/
+  deepseek-harness/
+  dsh-companion/
+```
 
-## Local preview
+Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
-Use Node.js 22.19 or newer, pnpm, and a modern browser:
+Prepare Harness once:
 
 ```sh
+cd deepseek-harness
+pnpm install --frozen-lockfile
+pnpm run build
+```
+
+Install and start Companion:
+
+```sh
+cd ../dsh-companion
 pnpm install
+pnpm host
+```
+
+Open [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/). It reads sessions from that `dsh web` process; the existing Harness app remains at `/`.
+
+## Fixture preview
+
+To inspect the workflow without a real Host:
+
+```sh
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173/`. `pnpm run check` runs types, lint, unit tests, and the production build. `pnpm run test:web` runs the three target viewports with an installed Chrome.
+Open [http://127.0.0.1:5173/companion/?fixture](http://127.0.0.1:5173/companion/?fixture). A standalone Vite page without `?fixture` has no same-origin Harness API and is not a real connection entry.
 
-## Planned delivery
+## Verification
 
-1. Responsive fixture-driven web shell and interaction walkthrough.
-2. Authenticated direct connection to Harness over LAN or a private network such as Tailscale.
-3. Installable PWA with foreground resynchronization and Web Push where available.
-4. Capacitor packaging for iOS and Android with secure storage, QR scanning, camera attachments, and native push.
-5. Optional end-to-end encrypted relay for hosts that cannot accept inbound connections.
+```sh
+pnpm run check
+pnpm run test:web
+```
 
-## Status
+`check` verifies the pinned Harness checkout, types, lint, unit tests, and the production build. `test:web` runs the official Fixture through the real Client Runtime in all three target viewports.
 
-Only the Fixture Web preview is implemented. No production Harness connection or authentication exists yet. Do not expose a Harness HTTP endpoint to an untrusted network to test this project.
+## Next stage
+
+The next stage adds device identity, QR pairing, scopes, revocation, and explicit protocol compatibility in Harness before non-loopback access is enabled. Installable PWA support, background notifications, Capacitor packaging, and an optional end-to-end encrypted relay follow that security foundation.
