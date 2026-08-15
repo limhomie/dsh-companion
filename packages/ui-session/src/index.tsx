@@ -24,10 +24,11 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
 import type { RouteProps } from '@dsh-companion/ui-shell'
+import type { CompanionDeviceTrustService } from '@dsh-companion/device-trust-web'
 import { ConversationHistory } from './conversation.tsx'
 
 export const name = 'companion-ui-session'
-export const inject = ['companionUi', 'connection', 'sessions']
+export const inject = ['companionUi', 'companionDeviceTrust', 'connection', 'sessions']
 
 type ApprovalWait = Extract<PendingInteraction, { kind: 'approval' }>
 type QuestionWait = Extract<PendingInteraction, { kind: 'question' }>
@@ -244,7 +245,11 @@ function PendingPanel({ wait, connected }: { wait: PendingInteraction; connected
   }
 }
 
-function SessionConversation({ session, connected }: { session: SessionFace; connected: boolean }) {
+function SessionConversation({ session, connected, allowInteractions }: {
+  session: SessionFace
+  connected: boolean
+  allowInteractions: boolean
+}) {
   const snapshot = useSyncExternalStore(
     listener => session.subscribe(listener),
     () => session.getSnapshot(),
@@ -258,14 +263,19 @@ function SessionConversation({ session, connected }: { session: SessionFace; con
   return (
     <>
       <ConversationHistory session={session} snapshot={snapshot} />
-      {snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)}
+      {allowInteractions
+        ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
+        : snapshot.pending.length > 0 && (
+          <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>
+        )}
     </>
   )
 }
 
-function SessionDetail({ sessions, connection, rawId, navigate }: {
+function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
   sessions: ISessions
   connection: ConnectionHandle
+  trust: CompanionDeviceTrustService
   rawId: string
   navigate(path: string): void
 }) {
@@ -308,19 +318,20 @@ function SessionDetail({ sessions, connection, rawId, navigate }: {
         <span><small>工作区</small>{workspaceLabel(summary.cwd)}</span>
         <span><small>连接</small>{host === undefined ? '只读' : '已同步'}</span>
       </div>
-      <SessionConversation session={binding.session} connected={host !== undefined} />
+      <SessionConversation session={binding.session} connected={host !== undefined} allowInteractions={trust.canAnswerInteractions()} />
     </div>
   )
 }
 
-function SessionsRoute({ sessions, connection, path, navigate }: {
+function SessionsRoute({ sessions, connection, trust, path, navigate }: {
   sessions: ISessions
   connection: ConnectionHandle
+  trust: CompanionDeviceTrustService
 } & RouteProps) {
   const detail = useMemo(() => /^\/sessions\/([^/]+)$/.exec(path)?.[1], [path])
   return detail === undefined
     ? <SessionsList sessions={sessions} navigate={navigate} />
-    : <SessionDetail sessions={sessions} connection={connection} rawId={detail} navigate={navigate} />
+    : <SessionDetail sessions={sessions} connection={connection} trust={trust} rawId={detail} navigate={navigate} />
 }
 
 export function apply(ctx: Context): void {
@@ -332,6 +343,6 @@ export function apply(ctx: Context): void {
     order: 20,
     icon: MessageSquare,
     match: path => path === '/sessions' || path.startsWith('/sessions/'),
-    component: props => <SessionsRoute sessions={ctx.sessions} connection={connection} {...props} />,
+    component: props => <SessionsRoute sessions={ctx.sessions} connection={connection} trust={ctx.companionDeviceTrust} {...props} />,
   })
 }

@@ -1,3 +1,3 @@
 # Settings UI
 
-注册 `/settings` 页面，展示 Harness Connection 提供的 Host 描述、真实或 Fixture 模式、回环访问限制和已装载客户端能力。页面不提供自有重连状态机或设备认证占位操作。
+注册 `/settings` 页面。电脑回环页面通过 `ctx.companionDeviceTrust` 创建二维码邀请、批准核对码并撤销设备；已配对手机只显示 `session:read` 授权。Harness 持有设备记录和配对状态，UI 不复制凭据或设备身份。

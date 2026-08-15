@@ -9,7 +9,9 @@ import * as ApiRemotes from '@deepseek-ai/dsh-api-remotes/client'
 import * as ClientRuntime from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import * as ConversationProjection from '@dsh-companion/conversation-projection'
+import CompanionDeviceTrustService from '@dsh-companion/device-trust-web'
 import * as InboxUi from '@dsh-companion/ui-inbox'
+import { PairingPage } from '@dsh-companion/ui-pairing'
 import * as SessionUi from '@dsh-companion/ui-session'
 import * as SettingsUi from '@dsh-companion/ui-settings'
 import UiRegistryService, { AppShell } from '@dsh-companion/ui-shell'
@@ -19,11 +21,16 @@ async function boot(): Promise<void> {
   const element = document.getElementById('root')
   if (element === null) throw new Error('missing #root element')
   const root = createRoot(element)
+  const pairingOfferId = new URLSearchParams(window.location.search).get('pair')
+  if (pairingOfferId !== null) {
+    root.render(<PairingPage offerId={pairingOfferId} />)
+    return
+  }
   const ctx = new Context()
   const fibers: Fiber[] = []
 
   try {
-    for (const plugin of [TypertRegistry, Connection, ApiGateway, ApiRemotes, ClientRuntime]) {
+    for (const plugin of [TypertRegistry, Connection, CompanionDeviceTrustService, ApiGateway, ApiRemotes, ClientRuntime]) {
       const fiber = ctx.plugin(plugin)
       fibers.push(fiber)
       await fiber.await()

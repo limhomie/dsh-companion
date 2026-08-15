@@ -13,6 +13,9 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "paths": {
+      "@deepseek-ai/dsh-device-trust-connection": [
+        "../deepseek-harness/packages/identity/device-trust-connection/src/protocol.ts"
+      ],
       "@deepseek-ai/dsh-client-ui-conversation/client": [
         "../deepseek-harness/packages/client/ui-conversation/src/client/contract/chat-nodes.ts"
       ]

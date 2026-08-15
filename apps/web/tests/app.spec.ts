@@ -36,9 +36,55 @@ test('shows the exact Host and local-only trust scope', async ({ page }) => {
   await page.goto('/companion/settings?fixture')
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible()
   await expect(page.getByText('演示数据', { exact: true })).toBeVisible()
-  await expect(page.getByText('当前只允许回环访问', { exact: true })).toBeVisible()
+  await expect(page.getByText('演示模式', { exact: true })).toBeVisible()
+  await expect(page.getByText('不会创建真实配对', { exact: true })).toBeVisible()
   await expect(page.getByTestId('connection-banner')).toHaveCount(0)
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('claims a QR offer before runtime boot and enters the fixture app after approval', async ({ page }) => {
+  const offerId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const claimId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  let polls = 0
+  await page.route('**/api/device-pairing.claim', async route => {
+    expect(route.request().postDataJSON()).toEqual({ offerId, label: '测试手机' })
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        claimId,
+        claimSecret: 's'.repeat(32),
+        verificationCode: '482913',
+        expiresAt: '2030-01-01T00:00:00.000Z',
+      }),
+    })
+  })
+  await page.route('**/api/device-pairing.poll', async route => {
+    polls += 1
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(polls === 1 ? { status: 'pending' } : {
+        status: 'approved',
+        device: {
+          deviceId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          label: '测试手机',
+          scopes: ['session:read'],
+          createdAt: '2029-01-01T00:00:00.000Z',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+        },
+      }),
+    })
+  })
+
+  await page.goto(`/companion/?pair=${offerId}&fixture`)
+  await expect(page.getByRole('heading', { name: '确认手机名称', exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: '设备名称' }).fill('测试手机')
+  await page.getByRole('button', { name: '请求配对', exact: true }).click()
+  await expect(page.getByLabel('配对核对码')).toHaveText('482913')
+
+  const waitingOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(waitingOverflow).toBeLessThanOrEqual(0)
+  await expect(page).toHaveURL(/\/companion\/\?fixture$/)
+  await expect(page.getByRole('heading', { name: '收件箱', exact: true })).toBeVisible()
 })

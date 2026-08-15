@@ -24,6 +24,7 @@ export default defineConfig({
       { find: /^@deepseek-ai\/dsh-api-gateway\/client$/, replacement: harnessSource('packages/api/gateway/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-api-remotes\/client$/, replacement: harnessSource('packages/api/remotes/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-runtime\/client$/, replacement: harnessSource('packages/client/runtime/src/client/index.ts') },
+      { find: /^@deepseek-ai\/dsh-device-trust-connection$/, replacement: harnessSource('packages/identity/device-trust-connection/src/protocol.ts') },
     ],
   },
 })

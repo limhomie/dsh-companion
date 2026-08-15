@@ -15,6 +15,7 @@ export const EXPECTED_HARNESS_VERSION = '0.1.0-rc.5'
 
 const HARNESS_PACKAGES = [
   '@deepseek-ai/dsh-client-connection',
+  '@deepseek-ai/dsh-device-trust-connection',
   '@deepseek-ai/dsh-host-frontend-static',
   '@deepseek-ai/dsh-host-webserver',
 ] as const
@@ -40,7 +41,7 @@ function readHarnessPackageVersions(): Record<(typeof HARNESS_PACKAGES)[number],
   })) as Record<(typeof HARNESS_PACKAGES)[number], unknown>
 }
 
-/** Register the loopback-only Companion SPA under the existing Harness server. */
+/** Register the loopback-bound Companion SPA under the existing Harness server. */
 export async function apply(ctx: Context): Promise<void> {
   if (ctx.webServer.host !== '127.0.0.1') {
     throw new Error(`${name}: refusing non-loopback webserver host ${ctx.webServer.host}`)

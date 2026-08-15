@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; loopback real connection implemented
+Status: architecture baseline; trusted read-only phone connection implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the current real connection is the [Host-served real Session slice](../.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is the [Host-served read-only PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md).
 
 ## 1. Purpose
 
@@ -42,7 +42,7 @@ Harness owns:
 Companion owns:
 
 - Host discovery and pairing UX.
-- Device key storage and connection state.
+- Pairing-page memory and connection state. The browser never receives the reusable device credential through JavaScript.
 - Local presentation caches that can be discarded and rebuilt.
 - Mobile navigation, attention inbox, conversation rendering, and input.
 - Native adapters for QR scanning, notifications, camera input, deep links, and secure storage.
@@ -111,10 +111,12 @@ apps/
   web/                       Harness Client plugin graph and responsive web entry
 packages/
   host-web/                  Loopback-restricted /companion static Host plugin
+  device-trust-web/          React-free pairing HTTP client and Cordis service
   ui-shell/                  Route Registry and responsive Shell
   ui-inbox/                  Inbox derived from Harness SessionListState
+  ui-pairing/                Pre-runtime phone pairing page
   ui-session/                Session header, question, and approval UI
-  ui-settings/               Host, connection, and current trust scope
+  ui-settings/               Pairing offers, device list, revocation, and current trust scope
 scripts/
   verify-harness.mjs         Exact checkout and version verification
   start-harness.mjs          Patch generation and dsh web launcher
@@ -126,7 +128,7 @@ Prerelease development consumes public packages from a sibling Harness checkout 
 
 ### 5.2 Harness repository ownership
 
-The following work belongs in `deepseek-harness`, not in Companion:
+The following security and protocol work belongs in `deepseek-harness`, not in Companion. The device-trust items are implemented for the read-only PWA; the remaining items are later capabilities:
 
 - Protocol version and capability fields in `host.describe`.
 - A publishable, wire-only client contract containing DTO types, parsers, error codes, and carrier interfaces.
@@ -145,7 +147,7 @@ Each new Harness capability is complete across its three roles.
 
 | Capability | Service Definition | Providers | Consumers |
 |---|---|---|---|
-| Device trust | Verify a device principal, inspect grants, revoke trust | Paired public-key provider; test-memory provider | Connection authentication and authorization |
+| Device trust | Verify a device principal, inspect grants, revoke trust | Local digest-backed bearer provider; later native key-bound provider | Connection authentication and authorization |
 | Remote carrier | Carry authenticated request/response and downlink envelopes | Direct HTTP/WebSocket; outbound relay | API Gateway and event delivery |
 | Notifications | Deliver a secret-free attention signal to a registered device | Web Push; APNs/FCM adapter; disabled provider | Approval, question, failure, and turn-completion projector |
 
@@ -213,18 +215,18 @@ Session events retain their authoritative sequence numbers. Projection updates r
 
 ### 8.1 Pairing flow
 
-1. A local Harness command or trusted Host page creates a single-use pairing offer with a short expiry.
-2. The offer is shown as a QR code containing the Host address, Host identity fingerprint, offer id, and expiry. It contains no reusable bearer credential.
-3. Companion creates or loads its device identity from secure local storage and presents proof through an established authenticated key-exchange implementation.
-4. Harness verifies the one-time offer, records the device public identity, and returns the granted scopes.
-5. Both sides display a short verification code or fingerprint before granting control scopes.
-6. The offer is consumed atomically. Reuse, expiry, or a mismatched Host identity fails closed.
+1. A loopback Harness page creates a single-use pairing offer with a short expiry and the configured private HTTPS origin.
+2. The page shows a QR code containing the Host origin and random offer id. It contains no reusable device credential.
+3. The phone submits a device label and receives a claim secret plus a six-digit verification code. The claim secret stays only in page memory.
+4. The computer lists the pending claim and approves it after the operator compares the code.
+5. The phone polls with its claim secret. Approval sets a host-only Secure, HttpOnly, SameSite=Strict Cookie and reloads the normal Companion runtime.
+6. Offer reuse, expiry, a mismatched claim secret, an invalid credential, and revocation fail closed. A lost poll response can be retried during the offer lifetime.
 
-Cryptographic primitives and handshake state machines must come from maintained, reviewed dependencies. This project does not define a new cryptographic protocol.
+The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. A future native client that cannot use this Cookie requires a separate key-bound Harness Provider built from maintained cryptographic protocol libraries.
 
 ### 8.2 Scopes
 
-The initial scope vocabulary is:
+The scope vocabulary is:
 
 | Scope | Allows |
 |---|---|
@@ -234,7 +236,7 @@ The initial scope vocabulary is:
 | `interaction:answer` | Resolve approval, question, and plan-review requests |
 | `workspace:review` | Read bounded workspace metadata and diffs exposed by a review API |
 
-The initial mobile grant excludes settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation. Those operations need separately designed scopes and confirmation UX before remote exposure.
+The implemented PWA grant contains only `session:read`. It excludes prompts, interaction answers, settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation. Every later remote operation needs an explicit scope and confirmation design before exposure.
 
 ### 8.3 Revocation and provenance
 
@@ -263,7 +265,7 @@ Security rules:
 - Authorization runs on every request using the Connection principal and current Host grants.
 - Push payloads carry only opaque Host, session, and attention identifiers plus a coarse category. The app fetches current state after opening.
 - A notification never contains prompts, tool arguments, diffs, paths, model output, or credentials.
-- Native clients store long-term private keys in Keychain/Keystore through the platform plugin. The PWA uses a same-origin, non-exportable WebCrypto key when the browser supports it and exposes the weaker browser-profile trust model during pairing.
+- The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Native clients later store key-bound credentials in Keychain or Keystore through a platform plugin.
 - Cached transcript data is minimized, encrypted by platform storage where retained, and safe to discard.
 - Sensitive Host configuration APIs stay unavailable to remote principals in the initial release.
 
@@ -272,7 +274,7 @@ Security rules:
 Harness is authoritative for all product state. Companion may persist:
 
 - Paired Host descriptors and public identity fingerprints.
-- Device private identity in secure storage.
+- Native device identity in secure storage when the native key-bound Provider exists. The current PWA stores no authentication secret through application code.
 - Non-secret UI preferences.
 - Bounded encrypted presentation cache and last acknowledged resume cursor.
 - Pending local drafts and unsent operations with idempotency keys.
@@ -325,13 +327,18 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - The Host plugin rejects non-`127.0.0.1` binds and inconsistent Harness package versions.
 - Read-only conversation history uses Harness's standard definitions and Runtime projection; device identity, LAN access, prompts, queues, steering, and interruption remain unavailable.
 
-### Phase 1: authenticated direct PWA
+### Phase 1: authenticated read-only direct PWA (implemented)
 
-- Upstream protocol version and capability negotiation.
 - Device-trust capability with QR pairing, scopes, and revocation.
 - Direct HTTPS/WebSocket carrier over LAN or Tailscale.
-- Session lists, history, live stream, prompt, queue, steer, interrupt, and interactions.
-- Foreground resynchronization and idempotent mutations.
+- Session lists, history, live read projections, and explicit denial of remote mutations.
+- Chinese pairing, device management, scope, and revocation surfaces.
+
+### Phase 1.5: authenticated remote control
+
+- Protocol version and capability negotiation for independently released clients.
+- Prompt, queue, steer, interrupt, and interaction scopes with durable actor provenance.
+- Foreground resynchronization, idempotent mutations, and request cancellation.
 
 ### Phase 2: installable and native surfaces
 

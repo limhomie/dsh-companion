@@ -10,6 +10,7 @@ import {
 
 const compatibleVersions = {
   '@deepseek-ai/dsh-client-connection': EXPECTED_HARNESS_VERSION,
+  '@deepseek-ai/dsh-device-trust-connection': EXPECTED_HARNESS_VERSION,
   '@deepseek-ai/dsh-host-frontend-static': EXPECTED_HARNESS_VERSION,
   '@deepseek-ai/dsh-host-webserver': EXPECTED_HARNESS_VERSION,
 } as const

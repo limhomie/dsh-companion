@@ -15,11 +15,21 @@ writeFileSync(patchPath, [
   '',
 ].join('\n'))
 
+const forwardedArgs = process.argv.slice(2)
+const configuredOrigin = process.env.DSH_COMPANION_PUBLIC_ORIGIN
+if (configuredOrigin !== undefined) {
+  const origin = new URL(configuredOrigin)
+  if (origin.protocol !== 'https:' || origin.origin !== configuredOrigin) {
+    throw new Error('DSH_COMPANION_PUBLIC_ORIGIN must be one canonical HTTPS origin')
+  }
+  forwardedArgs.push('--trusted-host', origin.host)
+}
+
 const args = [
   '--dir', harnessRoot,
   'dsh', 'web',
   '--patch', patchPath,
-  ...process.argv.slice(2),
+  ...forwardedArgs,
 ]
 const pnpmCli = process.env.npm_execpath
 if (pnpmCli !== undefined) {

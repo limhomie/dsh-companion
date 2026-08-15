@@ -2,9 +2,9 @@
 
 English | [中文](README.zh.md)
 
-DSH Companion is a mobile-first companion surface for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Harness now serves it from `/companion/` on the same origin. The current slice reads real sessions and responds to Harness questions and approvals from a desktop browser using the responsive mobile layout.
+DSH Companion is a mobile-first companion surface for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Harness serves it from `/companion/` on the same origin. The computer's loopback page retains its interactive controls; an approved phone can connect through private Tailscale HTTPS and read real sessions with the fixed `session:read` scope.
 
-This build is intentionally loopback-only. It validates the real Harness data path and the mobile workflow, but it is not an authenticated remote phone client. LAN, Tailscale, and public access remain blocked until device pairing, authorization, and revocation exist.
+The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies private-network reachability, while Harness owns one-time pairing, the HttpOnly device credential, authorization, and revocation. The phone cannot submit prompts, answer interactions, run commands, browse files, or change Host settings in this phase.
 
 ## Implemented
 
@@ -13,10 +13,13 @@ This build is intentionally loopback-only. It validates the real Harness data pa
 - Derives the inbox, session list, and pending state from `ctx.sessions`.
 - Responds through Harness `PendingWait.respond()`; only a Host resolved frame removes pending work.
 - Composes Inbox, Session, and Settings as independent Cordis UI plugins.
+- Runs a Chinese pre-runtime pairing page that keeps its claim secret only in page memory, receives the credential through an HttpOnly Cookie, and then starts the standard Harness Client Runtime.
+- Lets the local Settings page create a QR offer, compare and approve a six-digit code, list paired devices, and revoke one after explicit confirmation.
+- Hides question and approval controls on a paired remote device; Harness independently rejects every remote mutation and unknown API target.
 - Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
 - Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
-See the [architecture](docs/architecture.md), the [implemented real-Harness slice](.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md), the [read-only Conversation decision](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
+See the [architecture](docs/architecture.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [read-only Conversation decision](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
 
 ## Setup
 
@@ -28,7 +31,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `47f943859bef60e4160492346772ded9b24f765a`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
+Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `cccabc6c2378bdbc7850fb8f27a68f018810af03`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
 Prepare Harness once:
 
@@ -47,6 +50,23 @@ pnpm host
 ```
 
 Open [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/). It reads sessions from that `dsh web` process; the existing Harness app remains at `/`.
+
+## Trusted phone connection
+
+Install Tailscale on the computer and phone, sign both into the same tailnet, and keep Harness stopped while discovering the private HTTPS address. In an Administrator PowerShell on Windows, from the Companion checkout run:
+
+```powershell
+tailscale serve --bg 3080
+```
+
+The command prints an address such as `https://computer-name.tailnet-name.ts.net`. Start Companion with that exact origin in a normal PowerShell:
+
+```powershell
+$env:DSH_COMPANION_PUBLIC_ORIGIN = 'https://computer-name.tailnet-name.ts.net'
+pnpm host
+```
+
+Open the local Settings page at [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/), create a pairing code, and scan its QR code from the phone. Compare the six-digit code on both screens before approving. Do not use Tailscale Funnel or expose port 3080 directly to the LAN or internet. Stop private sharing with `tailscale serve off`.
 
 ## Fixture preview
 
@@ -69,4 +89,4 @@ pnpm run test:web
 
 ## Next stage
 
-The next stage adds device identity, QR pairing, scopes, revocation, and explicit protocol compatibility in Harness before non-loopback access is enabled. Installable PWA support, background notifications, Capacitor packaging, and an optional end-to-end encrypted relay follow that security foundation.
+The next stage designs authenticated remote writes: prompt and queue submission, interaction answers, durable actor provenance, idempotency, cancellation, and explicit capability negotiation. Installable PWA support, background notifications, Capacitor packaging with key-bound credentials, and an optional end-to-end encrypted relay follow that work.

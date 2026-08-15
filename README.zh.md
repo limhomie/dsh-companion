@@ -2,9 +2,9 @@
 
 [English](README.md) | 中文
 
-DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的移动优先伴侣界面。当前版本由 Harness 在同一 Origin 的 `/companion/` 提供，可以在电脑浏览器中查看真实 Session，并处理 Harness 发来的问题和审批。
+DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的移动优先伴侣界面，由 Harness 在同一 Origin 的 `/companion/` 提供。电脑回环页面保留完整交互控件；经过批准的手机可以通过私有 Tailscale HTTPS 连接，并以固定的 `session:read` Scope 查看真实 Session。
 
-当前实现只允许 `127.0.0.1` 回环访问。它用于验证真实 Harness 数据链路和手机布局，不是已经完成设备认证的远程手机端；局域网、Tailscale 和公网访问都必须等待下一阶段的设备配对、授权与撤销能力。
+Harness 后端仍然只监听 `127.0.0.1`。Tailscale Serve 提供私有网络可达性，Harness 持有一次性配对、HttpOnly 设备凭据、授权与撤销。本阶段的手机不能提交 Prompt、回答 Interaction、执行 Command、浏览文件或修改 Host 设置。
 
 ## 已实现
 
@@ -13,10 +13,13 @@ DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 - 从 `ctx.sessions` 派生收件箱、Session 列表和待处理状态。
 - 通过 Harness 的 `PendingWait.respond()` 回答问题或批准/拒绝工具调用；只有 Host 的 resolved Frame 才会移除事项。
 - 独立 Cordis UI 插件贡献收件箱、Session 和设置页面，Shell 只负责路由、导航与连接提示。
+- 中文配对页在正常 Runtime 启动前运行，Claim Secret 只留在页面内存中；凭据通过 HttpOnly Cookie 领取，随后启动标准 Harness Client Runtime。
+- 本机设置页可以创建二维码 Offer、核对并批准六位验证码、列出已配对设备，并在二次确认后撤销设备。
+- 已配对远程设备不显示问题和审批控件；Harness 还会独立拒绝所有远程修改与未知 API 目标。
 - `dsh-companion-host-web` 插件把构建产物挂载到 Harness 的 `/companion` 前缀，并在非回环 Host 或 Harness 版本不一致时拒绝加载。
 - 官方 Harness Fixture 驱动的无密钥浏览器测试覆盖 390x844、430x932 和 1280x800。
 
-完整机制见 [架构文档](docs/architecture.zh.md)、[本机真实 Harness 切片决策](.agents/notes/implemented/architecture/2026-08-15-host-served-real-harness-slice.md) 和 [只读 Conversation 决策](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md)。工程修改遵循 [AGENTS.md](AGENTS.md) 与 [设计和开发流程](docs/design-workflow.zh.md)。
+完整机制见 [架构文档](docs/architecture.zh.md)、[可信 Host 同源 PWA 决策](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md) 和 [只读 Conversation 决策](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md)。工程修改遵循 [AGENTS.md](AGENTS.md) 与 [设计和开发流程](docs/design-workflow.zh.md)。
 
 ## 环境准备
 
@@ -28,7 +31,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `47f943859bef60e4160492346772ded9b24f765a`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
+Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `cccabc6c2378bdbc7850fb8f27a68f018810af03`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
 
 首次准备 Harness：
 
@@ -47,6 +50,23 @@ pnpm host
 ```
 
 打开 [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/)。该页面读取同一 `dsh web` 进程中的真实 Session；Harness 原有页面仍位于根路径 `/`。
+
+## 手机可信连接
+
+在电脑和手机上安装 Tailscale，并让两台设备登录同一个 Tailnet。先保持 Harness 停止，在 Windows 管理员 PowerShell 中进入 Companion 目录并运行：
+
+```powershell
+tailscale serve --bg 3080
+```
+
+命令会显示类似 `https://computer-name.tailnet-name.ts.net` 的地址。在普通 PowerShell 中使用这个完整 Origin 启动 Companion：
+
+```powershell
+$env:DSH_COMPANION_PUBLIC_ORIGIN = 'https://computer-name.tailnet-name.ts.net'
+pnpm host
+```
+
+在电脑上打开[本机设置页](http://127.0.0.1:3080/companion/)，创建配对码，再用手机扫描二维码。批准前必须核对两边显示的六位验证码。不要使用 Tailscale Funnel，也不要把 3080 端口直接暴露给局域网或互联网。运行 `tailscale serve off` 可以停止私有共享。
 
 ## 只看演示数据
 
@@ -69,4 +89,4 @@ pnpm run test:web
 
 ## 下一阶段
 
-下一阶段在 Harness 中建立设备身份、二维码配对、Scope、撤销和明确的协议兼容信息，然后才允许非回环访问。PWA 安装、后台通知、Capacitor 原生壳和可选的端到端加密中继均建立在该安全能力之上。
+下一阶段设计经过认证的远程修改：Prompt 与排队提交、Interaction 应答、持久 Actor 来源、幂等、取消和明确能力协商。可安装 PWA、后台通知、带密钥绑定凭据的 Capacitor 原生壳，以及可选的端到端加密中继随后推进。
