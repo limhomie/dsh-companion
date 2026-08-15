@@ -20,6 +20,8 @@ DSH Companion 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-har
 
 工程修改遵循 [AGENTS.md](AGENTS.md) 和 [设计与开发流程](docs/design-workflow.zh.md)。首个已实现的纵向切片是 [以待处理事项为中心的移动工作流](.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)。
 
+下一阶段拟议复用 Harness 现有 Client Connection 与 Client Runtime，先交付 [Harness 同源托管的真实 Session 切片](.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md)。该阶段仅支持电脑本机回环访问；手机局域网访问必须等待设备认证。
+
 ## 本地预览
 
 需要 Node.js 22.19 以上版本、pnpm 和现代浏览器：

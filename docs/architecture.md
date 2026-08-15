@@ -4,7 +4,7 @@ English | [中文](architecture.zh.md)
 
 Status: initial architecture baseline
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The current Stage 0 implementation is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The current Stage 0 implementation is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the next stage is the proposed [Host-served real Session slice](../.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md).
 
 ## 1. Purpose
 

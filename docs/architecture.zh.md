@@ -4,7 +4,7 @@
 
 状态：初始架构基线
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。当前 Stage 0 实现见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。当前 Stage 0 实现见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；下一阶段见 [Harness 同源托管的真实 Session 切片提案](../.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md)。
 
 ## 1. 目标
 

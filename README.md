@@ -20,6 +20,8 @@ See [docs/architecture.md](docs/architecture.md) for the system boundaries, plug
 
 Engineering changes follow [AGENTS.md](AGENTS.md) and the current [Chinese design workflow](docs/design-workflow.zh.md). The first implemented vertical slice is the [attention-centered mobile workflow](.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md).
 
+The proposed next stage reuses Harness's existing Client Connection and Client Runtime for a [Host-served real Session slice](.agents/notes/proposed/architecture/2026-08-15-host-served-real-harness-slice.md). It remains loopback-only on the computer; LAN phone access requires device authentication first.
+
 ## Local preview
 
 Use Node.js 22.19 or newer, pnpm, and a modern browser:
