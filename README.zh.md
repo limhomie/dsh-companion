@@ -89,4 +89,4 @@ pnpm run test:web
 
 ## 下一阶段
 
-下一阶段设计经过认证的远程修改：Prompt 与排队提交、Interaction 应答、持久 Actor 来源、幂等、取消和明确能力协商。可安装 PWA、后台通知、带密钥绑定凭据的 Capacitor 原生壳，以及可选的端到端加密中继随后推进。
+下一阶段先实现经过认证的 [手机问题与审批处理](.agents/notes/proposed/feature/2026-08-16-trusted-interaction-answering.md)：由电脑为指定设备单独授予 `interaction:answer`，并完成持久 Actor 来源、幂等、多设备竞争和撤销竞态。Prompt、排队、中途指令、停止、可安装 PWA、后台通知、带密钥绑定凭据的 Capacitor 原生壳，以及可选的端到端加密中继随后推进。

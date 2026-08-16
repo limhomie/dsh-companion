@@ -89,4 +89,4 @@ pnpm run test:web
 
 ## Next stage
 
-The next stage designs authenticated remote writes: prompt and queue submission, interaction answers, durable actor provenance, idempotency, cancellation, and explicit capability negotiation. Installable PWA support, background notifications, Capacitor packaging with key-bound credentials, and an optional end-to-end encrypted relay follow that work.
+The next stage first implements authenticated [mobile question and approval handling](.agents/notes/proposed/feature/2026-08-16-trusted-interaction-answering.md): the computer grants `interaction:answer` to one device, with durable actor provenance, idempotency, multi-device races, and revocation ordering. Prompts, queues, steering, interruption, installable PWA support, background notifications, Capacitor packaging with key-bound credentials, and an optional end-to-end encrypted relay follow that work.
