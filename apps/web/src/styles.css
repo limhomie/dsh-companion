@@ -637,6 +637,10 @@ h2 {
   font-weight: 500;
 }
 
+.session-conversation {
+  min-width: 0;
+}
+
 .conversation-section {
   margin-top: 24px;
 }
@@ -1668,6 +1672,126 @@ h2 {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@media (max-width: 819px) {
+  .app-frame {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .app-column {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mobile-topbar,
+  .connection-banner {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .app-main {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .app-main:has(.page-session-detail) {
+    overflow: hidden;
+  }
+
+  .page-session-detail {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    padding-top: 12px;
+    padding-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .page-session-detail .back-button {
+    min-height: 32px;
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+  }
+
+  .page-session-detail .session-header,
+  .page-session-detail .session-facts {
+    flex: 0 0 auto;
+  }
+
+  .page-session-detail .session-header h1 {
+    font-size: 20px;
+  }
+
+  .page-session-detail .session-header p {
+    margin-top: 5px;
+  }
+
+  .page-session-detail .session-facts {
+    margin: 10px 0 12px;
+  }
+
+  .page-session-detail .session-facts span {
+    min-height: 50px;
+    padding: 7px 9px;
+  }
+
+  .session-conversation {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  .session-pending {
+    max-height: min(24dvh, 220px);
+    flex: 0 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .session-pending > :first-child {
+    margin-top: 0;
+  }
+
+  .session-conversation .conversation-section {
+    display: flex;
+    min-height: 112px;
+    flex: 1 1 0;
+    flex-direction: column;
+    margin-top: 10px;
+  }
+
+  .session-conversation .conversation-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  .session-conversation .prompt-composer {
+    max-height: min(40dvh, 340px);
+    flex: 0 0 auto;
+    margin-top: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .session-conversation .prompt-form textarea {
+    min-height: 58px;
+    resize: none;
+  }
+
+  .session-conversation .prompt-queue {
+    max-height: 78px;
+    overflow-y: auto;
+  }
 }
 
 .boot-failure {

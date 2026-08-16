@@ -16,7 +16,7 @@ Status: implemented
 
 `companionDeviceTrust` 从 Host 当前 Principal 派生 `canPrompt()`，不在浏览器存储 Scope 副本。`ui-session` 使用已有 `SessionFace.prompt()` 与 `ConversationSnapshot.queue`，不建立第二份 Prompt 或 Queue Store。输入草稿、提交状态、Operation id 和最近错误属于组件内的一次提交生命周期。
 
-输入区位于 Conversation 之后和手机底部导航之前。文本框保持有界，Send 图标按钮具有明确的禁用和加载状态。Host 返回 Accepted 后清空草稿；传输结果未知时保留草稿和原 Operation id，重试不能重复入队。权威 Queue 区显示等待数量与内容预览，被 Agent Claim 后由 Host Snapshot 自动移除并进入对话记录。
+手机 Session 详情占用顶栏和底部导航之间的可用高度。待办区和 Conversation 各自滚动，输入区作为最后一个稳定布局行保留在底部导航上方，不覆盖任何内容。桌面继续按文档流展示完整页面。文本框保持有界，Send 图标按钮具有明确的禁用和加载状态。Host 返回 Accepted 后清空草稿；传输结果未知时保留草稿和原 Operation id，重试不能重复入队。权威 Queue 区显示等待数量与内容预览，被 Agent Claim 后由 Host Snapshot 自动移除并进入对话记录。
 
 断线、Session Removed、Subagent、Scope 不足和提交中都会禁用输入。授权撤销会关闭 Connection；重新认证后界面从当前 Scope 和 Queue Baseline 重建。UI 不根据本地点击推断消息已经进入队列。
 
@@ -43,6 +43,6 @@ Status: implemented
 
 Prompt 比 Interaction 应答拥有更大的间接执行能力。授权文案必须说明 Agent 会继续使用 Session 的现有工具和权限，不能把它描述成普通聊天权限。
 
-固定底部输入区可能遮挡待处理 Interaction 或 Conversation。布局需要使用页面流和稳定的导航间距，不依赖视口高度猜测内容位置。
+手机软键盘会缩小动态视口。Session 页面从 `dvh` 派生可用高度，待办、Conversation、输入区和底部导航分别占据布局行；不得使用覆盖 Interaction 或 Conversation 的固定定位输入区。
 
 当前 Host-served Web 构建与 Harness 精确版本绑定。独立安装客户端仍需要协议版本与能力协商，本切片不把同源部署假设扩展到原生应用。

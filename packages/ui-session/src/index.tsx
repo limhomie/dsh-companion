@@ -361,15 +361,17 @@ function SessionConversation({ session, connected, allowInteractions, allowPromp
     return <div className="empty-state"><LoaderCircle className="spin" aria-hidden="true" size={28} /><strong>正在读取 Session</strong></div>
   }
   return (
-    <>
-      {allowInteractions
-        ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
-        : snapshot.pending.length > 0 && (
-          <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>
-        )}
+    <div className="session-conversation">
+      {snapshot.pending.length > 0 && (
+        <div className="session-pending" data-testid="session-pending">
+          {allowInteractions
+            ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
+            : <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>}
+        </div>
+      )}
       <ConversationHistory session={session} snapshot={snapshot} />
       <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} />
-    </>
+    </div>
   )
 }
 

@@ -25,6 +25,28 @@ test('handles Harness Fixture questions and approval through the real client run
   await expect.poll(() => page.getByTestId('conversation-scroll').evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   await expect(page.getByText('dangerous_tool', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('你现在更想招哪类 Agent/Harness 候选人？', { exact: true })).toBeVisible()
+  if (test.info().project.name !== 'desktop') {
+    const mobileLayout = await page.evaluate(() => {
+      const conversation = document.querySelector<HTMLElement>('[data-testid="conversation-scroll"]')
+      const composer = document.querySelector<HTMLElement>('[data-testid="prompt-composer"]')
+      const navigation = document.querySelector<HTMLElement>('[aria-label="移动主导航"]')
+      if (conversation === null || composer === null || navigation === null) return undefined
+      const conversationBounds = conversation.getBoundingClientRect()
+      const composerBounds = composer.getBoundingClientRect()
+      const navigationBounds = navigation.getBoundingClientRect()
+      return {
+        composerBottom: composerBounds.bottom,
+        composerTop: composerBounds.top,
+        conversationBottom: conversationBounds.bottom,
+        conversationScrollable: conversation.scrollHeight > conversation.clientHeight,
+        navigationTop: navigationBounds.top,
+      }
+    })
+    expect(mobileLayout).toBeDefined()
+    expect(mobileLayout?.conversationScrollable).toBe(true)
+    expect(mobileLayout?.conversationBottom).toBeLessThanOrEqual(mobileLayout?.composerTop ?? 0)
+    expect(mobileLayout?.composerBottom).toBeLessThanOrEqual(mobileLayout?.navigationTop ?? 0)
+  }
   await page.getByRole('radio', { name: /均衡型/ }).check()
   await page.getByRole('radio', { name: /先写完整设计/ }).check()
   await page.getByRole('checkbox', { name: '系统设计' }).check()
