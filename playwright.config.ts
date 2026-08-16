@@ -4,9 +4,16 @@ export default defineConfig({
   testDir: './apps/web/tests',
   fullyParallel: true,
   reporter: 'list',
+  workers: 6,
   use: {
     baseURL: 'http://127.0.0.1:4173',
     channel: 'chrome',
+    launchOptions: {
+      args: [
+        '--host-resolver-rules=MAP companion.test 127.0.0.1',
+        '--no-proxy-server',
+      ],
+    },
     trace: 'retain-on-failure',
   },
   projects: [

@@ -4,6 +4,7 @@ import {
   CircleAlert,
   LoaderCircle,
   PanelsTopLeft,
+  QrCode,
   ShieldCheck,
   Smartphone,
 } from 'lucide-react'
@@ -16,6 +17,24 @@ import type { ClaimPairingResponse } from '@deepseek-ai/dsh-device-trust-connect
 const POLL_INTERVAL_MS = 2_000
 
 type Phase = 'claim' | 'claiming' | 'waiting' | 'approved' | 'failed'
+
+/** Pre-runtime landing page for a remote browser without a paired-device Cookie. */
+export function UnpairedDevicePage() {
+  return (
+    <main className="pairing-page">
+      <header className="pairing-brand">
+        <span className="brand-mark"><PanelsTopLeft aria-hidden="true" size={20} /></span>
+        <strong>DSH Companion</strong>
+      </header>
+      <section className="pairing-panel" aria-live="polite">
+        <span className="pairing-leading unpaired"><QrCode aria-hidden="true" size={24} /></span>
+        <p className="eyebrow">尚未建立可信连接</p>
+        <h1>这台手机还没有配对</h1>
+        <p className="pairing-status pairing-instructions">请在电脑端打开 Companion 设置，选择“配对新手机”，再用这台手机扫描二维码。</p>
+      </section>
+    </main>
+  )
+}
 
 function pairingError(error: unknown): string {
   if (!(error instanceof DeviceTrustClientError)) return '配对失败，请回到电脑重新创建二维码'

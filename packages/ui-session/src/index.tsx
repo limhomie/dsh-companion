@@ -104,6 +104,13 @@ function useHost(connection: ConnectionHandle): HostDescription | undefined {
   )
 }
 
+function responseError(reason: string): Error {
+  if (reason === 'forbidden') return new Error('此设备没有回答权限，或权限刚刚被撤销')
+  if (reason === 'conflict') return new Error('其他设备正在处理这项待办，请等待同步结果')
+  if (reason === 'not-pending') return new Error('这项待处理事项已在其他设备完成')
+  return new Error(`Host 拒绝了这次应答：${reason}`)
+}
+
 function ApprovalPanel({ wait, connected }: { wait: ApprovalWait; connected: boolean }) {
   const [state, setState] = useState<'idle' | 'submitting' | 'failed'>('idle')
   const [error, setError] = useState<string>()
@@ -115,7 +122,7 @@ function ApprovalPanel({ wait, connected }: { wait: ApprovalWait; connected: boo
       ok: true,
       value: { sessionId: wait.sessionId, approvalId: wait.payload.approvalId, outcome },
     }).then(receipt => {
-      if (!receipt.accepted) throw new Error(`Host 拒绝了这次应答：${receipt.reason}`)
+      if (!receipt.accepted) throw responseError(receipt.reason)
     }).catch((cause: unknown) => {
       setState('failed')
       setError(cause instanceof Error ? cause.message : '提交失败')
@@ -179,7 +186,7 @@ function QuestionPanel({ wait, connected }: { wait: QuestionWait; connected: boo
       ok: true,
       value: { sessionId: wait.sessionId, answer: { answers } },
     }).then(receipt => {
-      if (!receipt.accepted) throw new Error(`Host 拒绝了这次应答：${receipt.reason}`)
+      if (!receipt.accepted) throw responseError(receipt.reason)
     }).catch((cause: unknown) => {
       setState('failed')
       setError(cause instanceof Error ? cause.message : '提交失败')
@@ -262,12 +269,12 @@ function SessionConversation({ session, connected, allowInteractions }: {
   }
   return (
     <>
-      <ConversationHistory session={session} snapshot={snapshot} />
       {allowInteractions
         ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
         : snapshot.pending.length > 0 && (
           <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>
         )}
+      <ConversationHistory session={session} snapshot={snapshot} />
     </>
   )
 }
@@ -283,6 +290,7 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
   const decoded = decodeURIComponent(rawId)
   const id = list.ids.find(candidate => candidate === decoded)
   const host = useHost(connection)
+  useSyncExternalStore(trust.subscribe, trust.getSnapshot)
 
   useEffect(() => {
     if (id !== undefined) sessions.open(id)

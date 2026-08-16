@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; trusted read-only phone connection implemented
+Status: architecture baseline; trusted phone interaction answers implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is the [Host-served read-only PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md) and [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md).
 
 ## 1. Purpose
 
@@ -86,6 +86,8 @@ Harness serves the Companion web assets and boot manifest from the same trusted 
 
 The web build may use the Host-selected browser plugin graph because the Host and web artifacts form one deployment. A production PWA still requires device authentication before non-loopback access is enabled.
 
+Before the Client Runtime starts, the web entry resolves the browser authority through the device-trust plugin. An explicit `device-unauthorized` response renders the pairing-required landing page without starting session transports; network, protocol, and unexpected authorization failures remain boot errors.
+
 ### 4.2 Native mode
 
 The Capacitor application packages the shell, Cordis runtime, feature plugins, and generic renderers in the signed app. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer.
@@ -128,7 +130,7 @@ Prerelease development consumes public packages from a sibling Harness checkout 
 
 ### 5.2 Harness repository ownership
 
-The following security and protocol work belongs in `deepseek-harness`, not in Companion. The device-trust items are implemented for the read-only PWA; the remaining items are later capabilities:
+The following security and protocol work belongs in `deepseek-harness`, not in Companion. Device trust, interaction-answer scope checks, authenticated actor provenance, and idempotent answer submission are implemented; the remaining items are later capabilities:
 
 - Protocol version and capability fields in `host.describe`.
 - A publishable, wire-only client contract containing DTO types, parsers, error codes, and carrier interfaces.
@@ -236,7 +238,7 @@ The scope vocabulary is:
 | `interaction:answer` | Resolve approval, question, and plan-review requests |
 | `workspace:review` | Read bounded workspace metadata and diffs exposed by a review API |
 
-The implemented PWA grant contains only `session:read`. It excludes prompts, interaction answers, settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation. Every later remote operation needs an explicit scope and confirmation design before exposure.
+Newly paired devices receive only `session:read`. Loopback administration may separately add `interaction:answer`, which covers Host-created approval, question, and plan-review requests. Prompts, Session control, settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation remain excluded. Every later remote operation needs an explicit scope and confirmation design before exposure.
 
 ### 8.3 Revocation and provenance
 
@@ -306,6 +308,8 @@ The session screen contains:
 
 The layout uses one primary pane on phones. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
 
+The single-pane Session places pending approvals, questions, and plan reviews before conversation history, so mutating actions do not depend on the history scroller's position.
+
 ### 11.3 Unknown features
 
 An older Companion client may meet a newer Host plugin. Unknown session events remain governed by the Harness session format. Unknown optional UI capabilities render a generic labeled state when safe, or no action when the client cannot prove how to answer. The app never fabricates a generic mutating form from an unknown operation schema.
@@ -334,10 +338,17 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Session lists, history, live read projections, and explicit denial of remote mutations.
 - Chinese pairing, device management, scope, and revocation surfaces.
 
-### Phase 1.5: authenticated remote control
+### Phase 1.5a: authenticated interaction answers (implemented)
+
+- Loopback grant management for `interaction:answer`; newly paired devices remain read-only.
+- Phone question, plan-review, allow-once, and reject controls derived from the current authenticated grant.
+- Principal-isolated idempotency, durable actor provenance, commit-ordered resolved frames, and request cancellation after grant replacement or revocation.
+- Prompt, queue, steer, interrupt, settings, and filesystem operations remain denied.
+
+### Phase 1.5b: authenticated remote control
 
 - Protocol version and capability negotiation for independently released clients.
-- Prompt, queue, steer, interrupt, and interaction scopes with durable actor provenance.
+- Prompt, queue, steer, and interrupt scopes with durable actor provenance.
 - Foreground resynchronization, idempotent mutations, and request cancellation.
 
 ### Phase 2: installable and native surfaces

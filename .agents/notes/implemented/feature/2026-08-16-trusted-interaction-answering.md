@@ -1,6 +1,6 @@
 # Agent Note: 可信手机处理问题与审批
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -37,12 +37,12 @@ Scope 更新提交后，Connection 终止该主体的下行流和进行中的修
 | Harness Connection | 认证载体 | 把不可由 Payload 伪造的主体和撤销 Signal 传到已解码请求，并执行已注册的能力判定；不解释 Interaction 业务字段或设备 Scope |
 | Harness API Proxy | 请求分类与提交协调 | 用 Host 待处理表识别 rpcId 的 Interaction 类型，向 Connection 请求对应能力判定并协调唯一提交 |
 | Harness user-approval | 持久事件所有者 | 在 `approval/decided` 中记录决定来源 |
-| Harness user-questions | 持久事件所有者 | 记录与 `ask_user_question` callId 关联的 `question/answered` 来源，再把答案交给 Tool |
+| Harness user-questions | 持久事件所有者 | 记录与 Host 问题请求 id 关联的 `question/answered` 来源，再把答案交给 Tool |
 | Companion device-trust-web | 客户端能力 | 读取当前 Scope，供 UI 订阅；本机页面调用授权管理端点 |
 | Companion ui-settings | UI Consumer | 显示 Scope、二次确认、开启和关闭权限 |
 | Companion ui-inbox/ui-session | UI Consumer | 只在当前主体拥有 Scope 时显示应答控件，提交后等待 Host 权威结果 |
 
-Harness 继续拥有 Session、待处理 Interaction、设备授权和持久 Actor 来源。Companion 不建立第二份待处理列表；本地提交状态只保存 operationId、表单选择和最近错误，并在对应 Interaction resolved 后删除。
+Harness 继续拥有 Session、待处理 Interaction、设备授权和持久 Actor 来源。Companion 不建立第二份待处理列表；`PendingWait` 保存 operationId，UI 只保存表单选择、提交状态和最近错误，并在对应 Interaction resolved 后卸载。
 
 ### 认证、授权与载体
 
@@ -56,7 +56,7 @@ Mux 下行仍只包含 Harness 已有的 Session 与 Interaction Frame。`host/r
 
 远程 Actor 使用 `{ kind: 'paired-device', deviceId }`，本机交互使用 `{ kind: 'user' }`。设备标签不写入 Session Log；展示时可用 deviceId 查询当前或已撤销的信任记录。原始 Cookie、摘要、Scope 列表和网络地址不得进入 Session Event。
 
-审批的提交点是携带 Actor 来源的 `approval/decided` 事件完成 append。问题与计划确认增加一个与 Tool callId 关联的 log-only `question/answered` 事件；该事件在答案进入模型可见 `tool/result` 前提交，只记录 Actor 来源和关联 id，不复制答案内容。任一 Actor 事件 append 失败时，Host 不返回 accepted，也不把答案交给 Agent。
+审批的提交点是携带 Actor 来源的 `approval/decided` 事件完成 append。问题与计划确认增加一个与 Host 问题请求 id 关联的 log-only `question/answered` 事件；该事件在答案进入模型可见 `tool/result` 前提交，只记录 Actor 来源和关联 id，不复制答案内容。任一 Actor 事件 append 失败时，Host 不返回 accepted，也不把答案交给 Agent。
 
 API Proxy 只在对应持久事件提交后发布 resolved Frame 并完成成功 receipt。断线重连重放同一 rpcId；已提交项不再出现在新基线，未提交项仍可用原 operationId 重试。客户端收到成功 HTTP receipt 仍等待 resolved Frame，以同一规则处理响应丢失和多客户端竞争。
 

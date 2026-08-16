@@ -109,6 +109,11 @@ input:focus-visible {
   color: var(--green);
 }
 
+.pairing-leading.unpaired {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
 .pairing-leading.failed {
   color: var(--red);
   background: var(--red-soft);
@@ -164,6 +169,11 @@ input:focus-visible {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.pairing-instructions {
+  max-width: 360px;
+  margin: 22px auto 0;
 }
 
 .desktop-sidebar {
@@ -1245,6 +1255,116 @@ h2 {
 
 .trusted-device[data-revoked="true"] {
   opacity: 0.62;
+}
+
+.device-actions {
+  display: inline-flex;
+  min-width: 86px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.permission-toggle {
+  position: relative;
+  display: inline-flex;
+  width: 40px;
+  height: 24px;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.permission-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.permission-toggle > span {
+  width: 40px;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.permission-toggle > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(24 28 25 / 25%);
+  content: '';
+  transition: transform 120ms ease;
+}
+
+.permission-toggle input:checked + span {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.permission-toggle input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.permission-toggle input:focus-visible + span {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.permission-toggle input:disabled + span {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.permission-confirm {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 2px 13px;
+  border-bottom: 1px solid var(--line);
+  color: var(--green);
+}
+
+.permission-confirm > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.permission-confirm strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.permission-confirm span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.permission-confirm .confirm-actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 430px) {
+  .permission-confirm {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .permission-confirm .confirm-actions {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
 }
 
 .icon-button {

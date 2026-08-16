@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useState, useSyncExternalStore } from 'react'
 import {
   Blocks,
   CheckCircle2,
@@ -53,6 +53,7 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
   const [devices, setDevices] = useState<readonly TrustedDeviceResponse[]>([])
   const [working, setWorking] = useState<string>()
   const [revokeTarget, setRevokeTarget] = useState<string>()
+  const [answerTarget, setAnswerTarget] = useState<string>()
   const [error, setError] = useState<string>()
 
   const refreshDevices = async (): Promise<void> => {
@@ -142,6 +143,23 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
     }
   }
 
+  const setAnswerPermission = async (deviceId: string, enabled: boolean): Promise<void> => {
+    setWorking(`scope:${deviceId}`)
+    setError(undefined)
+    try {
+      await trust.client.updateScopes(
+        deviceId,
+        enabled ? ['session:read', 'interaction:answer'] : ['session:read'],
+      )
+      setAnswerTarget(undefined)
+      await refreshDevices()
+    } catch (cause) {
+      setError(displayError(cause))
+    } finally {
+      setWorking(undefined)
+    }
+  }
+
   return (
     <>
       <button className="settings-action" type="button" disabled={working !== undefined} onClick={() => { void createOffer() }}>
@@ -177,24 +195,57 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
       ))}
 
       {devices.map(device => (
-        <div className="trusted-device" data-revoked={device.revokedAt !== undefined} key={device.deviceId}>
-          <span className="settings-icon muted"><Smartphone aria-hidden="true" size={20} /></span>
-          <div>
-            <strong>{device.label}</strong>
-            <span>{device.revokedAt === undefined ? `只读 · ${timeLabel(device.expiresAt)} 到期` : '已撤销'}</span>
+        <Fragment key={device.deviceId}>
+          <div className="trusted-device" data-revoked={device.revokedAt !== undefined}>
+            <span className="settings-icon muted"><Smartphone aria-hidden="true" size={20} /></span>
+            <div>
+              <strong>{device.label}</strong>
+              <span>{device.revokedAt === undefined
+                ? `${device.scopes.includes('interaction:answer') ? '可查看和回答' : '仅查看'} · ${timeLabel(device.expiresAt)} 到期`
+                : '已撤销'}</span>
+            </div>
+            {device.revokedAt === undefined && (
+              <span className="device-actions">
+                <label className="permission-toggle" title="允许这台设备回答问题和审批">
+                  <input
+                    type="checkbox"
+                    aria-label={`允许 ${device.label} 回答`}
+                    checked={device.scopes.includes('interaction:answer')}
+                    disabled={working !== undefined}
+                    onChange={event => {
+                      if (event.target.checked) setAnswerTarget(device.deviceId)
+                      else void setAnswerPermission(device.deviceId, false)
+                    }}
+                  />
+                  <span aria-hidden="true" />
+                </label>
+                {revokeTarget !== device.deviceId ? (
+                  <button className="icon-button danger" title="撤销设备" aria-label={`撤销 ${device.label}`} type="button" onClick={() => { setRevokeTarget(device.deviceId) }}>
+                    <Trash2 aria-hidden="true" size={18} />
+                  </button>
+                ) : (
+                  <span className="confirm-actions">
+                    <button className="icon-button" title="取消" aria-label="取消撤销" type="button" onClick={() => { setRevokeTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
+                    <button className="icon-button danger" title="确认撤销" aria-label={`确认撤销 ${device.label}`} type="button" disabled={working !== undefined} onClick={() => { void revoke(device.deviceId) }}><CheckCircle2 aria-hidden="true" size={18} /></button>
+                  </span>
+                )}
+              </span>
+            )}
           </div>
-          {device.revokedAt === undefined && revokeTarget !== device.deviceId && (
-            <button className="icon-button danger" title="撤销设备" aria-label={`撤销 ${device.label}`} type="button" onClick={() => { setRevokeTarget(device.deviceId) }}>
-              <Trash2 aria-hidden="true" size={18} />
-            </button>
+          {answerTarget === device.deviceId && (
+            <div className="permission-confirm" role="dialog" aria-label={`确认 ${device.label} 的回答权限`}>
+              <ShieldCheck aria-hidden="true" size={19} />
+              <div>
+                <strong>允许处理问题与审批？</strong>
+                <span>这台设备可以回答 Agent，并允许或拒绝一次工具操作。</span>
+              </div>
+              <span className="confirm-actions">
+                <button className="icon-button" title="取消" aria-label="取消授权" type="button" onClick={() => { setAnswerTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
+                <button className="button primary" type="button" disabled={working !== undefined} onClick={() => { void setAnswerPermission(device.deviceId, true) }}><ShieldCheck aria-hidden="true" size={17} />确认</button>
+              </span>
+            </div>
           )}
-          {device.revokedAt === undefined && revokeTarget === device.deviceId && (
-            <span className="confirm-actions">
-              <button className="icon-button" title="取消" aria-label="取消撤销" type="button" onClick={() => { setRevokeTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
-              <button className="icon-button danger" title="确认撤销" aria-label={`确认撤销 ${device.label}`} type="button" disabled={working !== undefined} onClick={() => { void revoke(device.deviceId) }}><CheckCircle2 aria-hidden="true" size={18} /></button>
-            </span>
-          )}
-        </div>
+        </Fragment>
       ))}
     </>
   )
@@ -205,6 +256,7 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
     connection.hostDescription.subscribe,
     connection.hostDescription.getSnapshot,
   )
+  const currentDevice = useSyncExternalStore(trust.subscribe, trust.getSnapshot)
 
   return (
     <div className="page page-settings">
@@ -245,7 +297,12 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
         ) : (
           <div className="settings-row">
             <span className="settings-icon"><KeyRound aria-hidden="true" size={20} /></span>
-            <div><strong>可信设备</strong><span>session:read · 仅查看 Session</span></div>
+            <div>
+              <strong>{currentDevice?.label ?? '可信设备'}</strong>
+              <span>{currentDevice?.scopes.includes('interaction:answer') === true
+                ? '可查看 Session、回答问题和处理一次性审批'
+                : '仅可查看 Session'}</span>
+            </div>
             <CheckCircle2 aria-label="已认证" size={18} />
           </div>
         )}

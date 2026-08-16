@@ -9,6 +9,16 @@ test('handles Harness Fixture questions and approval through the real client run
 
   await page.getByTestId('attention-pending:fx-alpha').click()
   await expect(page.getByTestId('conversation-history')).toBeVisible()
+  const allowButton = page.getByRole('button', { name: '允许一次', exact: true })
+  await expect(allowButton).toBeInViewport()
+  const interactionPrecedesHistory = await allowButton.evaluate((button, historyTestId) => {
+    const interaction = button.closest('[data-testid^="interaction-"]')
+    const history = document.querySelector(`[data-testid="${historyTestId}"]`)
+    return interaction !== null
+      && history !== null
+      && (interaction.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  }, 'conversation-history')
+  expect(interactionPrecedesHistory).toBe(true)
   await expect(page.getByText('问题 72：请完整列出全部一百条条目。', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '加载更早的对话', exact: true }).click()
   await expect(page.getByText('问题 29：fixture 历史消息，用于翻页与渲染验收。', { exact: true })).toHaveCount(1)
@@ -20,7 +30,7 @@ test('handles Harness Fixture questions and approval through the real client run
   await page.getByRole('checkbox', { name: '系统设计' }).check()
   await page.getByRole('button', { name: '提交回答', exact: true }).click()
   await expect(page.getByText('你现在更想招哪类 Agent/Harness 候选人？', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '允许一次', exact: true }).click()
+  await allowButton.click()
   await expect(page.getByText('dangerous_tool', { exact: true })).toHaveCount(0)
 
   const navLabel = test.info().project.name === 'desktop' ? '桌面主导航' : '移动主导航'
@@ -87,4 +97,24 @@ test('claims a QR offer before runtime boot and enters the fixture app after app
   expect(waitingOverflow).toBeLessThanOrEqual(0)
   await expect(page).toHaveURL(/\/companion\/\?fixture$/)
   await expect(page.getByRole('heading', { name: '收件箱', exact: true })).toBeVisible()
+})
+
+test('guides an unpaired remote browser without starting the client runtime', async ({ page }) => {
+  await page.route('**/api/device-pairing.current', async route => {
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: { code: 'device-unauthorized', message: 'paired-device credential is missing' },
+      }),
+    })
+  })
+
+  await page.goto('http://companion.test:4173/companion/')
+  await expect(page.getByRole('heading', { name: '这台手机还没有配对', exact: true })).toBeVisible()
+  await expect(page.getByText('请在电脑端打开 Companion 设置，选择“配对新手机”，再用这台手机扫描二维码。', { exact: true })).toBeVisible()
+  await expect(page.getByText('DSH Companion 启动失败', { exact: true })).toHaveCount(0)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
 })

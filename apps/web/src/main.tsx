@@ -11,7 +11,7 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import * as ConversationProjection from '@dsh-companion/conversation-projection'
 import CompanionDeviceTrustService from '@dsh-companion/device-trust-web'
 import * as InboxUi from '@dsh-companion/ui-inbox'
-import { PairingPage } from '@dsh-companion/ui-pairing'
+import { PairingPage, UnpairedDevicePage } from '@dsh-companion/ui-pairing'
 import * as SessionUi from '@dsh-companion/ui-session'
 import * as SettingsUi from '@dsh-companion/ui-settings'
 import UiRegistryService, { AppShell } from '@dsh-companion/ui-shell'
@@ -30,32 +30,42 @@ async function boot(): Promise<void> {
   const fibers: Fiber[] = []
 
   try {
-    for (const plugin of [TypertRegistry, Connection, CompanionDeviceTrustService, ApiGateway, ApiRemotes, ClientRuntime]) {
+    for (const plugin of [TypertRegistry, Connection, CompanionDeviceTrustService]) {
       const fiber = ctx.plugin(plugin)
       fibers.push(fiber)
       await fiber.await()
     }
 
-    const conversationProjection = ctx.plugin(ConversationProjection)
-    fibers.push(conversationProjection)
-    await conversationProjection.await()
+    if (ctx.companionDeviceTrust.getTrustState() === 'unpaired') {
+      root.render(<UnpairedDevicePage />)
+    } else {
+      for (const plugin of [ApiGateway, ApiRemotes, ClientRuntime]) {
+        const fiber = ctx.plugin(plugin)
+        fibers.push(fiber)
+        await fiber.await()
+      }
 
-    const ui = ctx.plugin(UiRegistryService)
-    fibers.push(ui)
-    await ui.await()
+      const conversationProjection = ctx.plugin(ConversationProjection)
+      fibers.push(conversationProjection)
+      await conversationProjection.await()
 
-    for (const plugin of [InboxUi, SessionUi, SettingsUi]) {
-      const fiber = ctx.plugin(plugin)
-      fibers.push(fiber)
-      await fiber.await()
+      const ui = ctx.plugin(UiRegistryService)
+      fibers.push(ui)
+      await ui.await()
+
+      for (const plugin of [InboxUi, SessionUi, SettingsUi]) {
+        const fiber = ctx.plugin(plugin)
+        fibers.push(fiber)
+        await fiber.await()
+      }
+
+      const connection = ctx.get('connection') as ConnectionHandle
+      root.render(
+        <StrictMode>
+          <AppShell connection={connection} sessions={ctx.sessions} ui={ctx.companionUi} />
+        </StrictMode>,
+      )
     }
-
-    const connection = ctx.get('connection') as ConnectionHandle
-    root.render(
-      <StrictMode>
-        <AppShell connection={connection} sessions={ctx.sessions} ui={ctx.companionUi} />
-      </StrictMode>,
-    )
   } catch (error) {
     const message = error instanceof Error ? error.message : '未知启动错误'
     root.render(

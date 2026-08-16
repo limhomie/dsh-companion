@@ -16,6 +16,9 @@ export default defineConfig({
     outDir: '../../packages/host-web/web-dist',
     sourcemap: true,
   },
+  preview: {
+    allowedHosts: ['companion.test'],
+  },
   resolve: {
     alias: [
       { find: /^@deepseek-ai\/cordis$/, replacement: harnessSource('vendor/cordis/src/index.ts') },

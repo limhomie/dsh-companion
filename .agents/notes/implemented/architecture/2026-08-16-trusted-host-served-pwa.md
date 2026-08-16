@@ -12,6 +12,8 @@ The first phone connection uses Harness device trust while Companion remains ser
 
 Companion never reads, persists, or logs the credential. The claim secret exists only in React memory during pairing. The pairing page runs before Cordis Connection startup, preventing unauthenticated WebSocket retries from obscuring the flow. A lost polling response can be retried with the same claim secret while the offer remains valid.
 
+The main remote entry resolves device trust before loading the Client Runtime. A `401 device-unauthorized` response is an unauthenticated browser state: Companion renders pairing guidance and does not start session transports. Network failures, incompatible responses, and other authorization failures still reject plugin loading so deployment faults remain visible.
+
 The initial device receives only `session:read`. A paired phone can rebuild the inbox, session list, conversation history, and live read projections through the existing Harness client packages. Remote question and approval controls are hidden, while Harness authorization remains the enforcing layer. The computer's loopback page retains local interaction authority.
 
 The Settings plugin creates offers, refreshes pending claims, approves a matching code, lists paired devices, and requires a second confirmation before revocation. When no public origin is configured it reports that phone pairing is unavailable rather than generating a loopback QR code.
@@ -28,7 +30,7 @@ Production reachability uses Tailscale Serve. Harness still listens on `127.0.0.
 
 ## Verification
 
-Unit tests cover the credentialed same-origin HTTP client and cancellation. Production-build Playwright tests cover the Chinese pairing flow at 390x844, 430x932, and 1280x800, including claim, verification code, approval polling, reload, remote read-only controls, revocation confirmation, and horizontal overflow. Harness owns focused tests for the credential, authorization, and revocation behavior.
+Unit tests cover the credentialed same-origin HTTP client, cancellation, and the explicit unauthenticated state. Production-build Playwright tests cover the Chinese pairing flow and unpaired remote landing at 390x844, 430x932, and 1280x800, including claim, verification code, approval polling, reload, remote read-only controls, revocation confirmation, and horizontal overflow. Harness owns focused tests for the credential, authorization, and revocation behavior.
 
 ## Consequences
 

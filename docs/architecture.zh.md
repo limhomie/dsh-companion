@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：架构基线；可信只读手机连接已实现
+状态：架构基线；可信手机 Interaction 应答已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径见 [Host 同源只读 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)和[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)共同记录。
 
 ## 1. 目标
 
@@ -86,6 +86,8 @@ Harness 从与 API 相同的可信 Origin 提供 Companion Web 资源和启动�
 
 由于 Host 与 Web 产物属于同一部署，Web 构建可以继续使用 Host 选择的浏览器插件图。生产 PWA 在启用非回环地址访问前，仍然必须完成设备认证。
 
+Client Runtime 启动前，Web 入口通过设备信任插件确定浏览器权限。明确的 `device-unauthorized` 响应会显示需要配对的落地页，并且不启动 Session 传输；网络、协议和非预期授权失败仍然属于启动错误。
+
 ### 4.2 原生模式
 
 Capacitor 应用将外壳、Cordis 运行时、功能插件和通用 Renderer 打包进签名应用。Host 在就绪握手中返回带版本的能力清单。客户端激活兼容的本地插件，并为已经识别但缺少专用 Renderer 的数据使用通用展示。
@@ -129,7 +131,7 @@ docs/
 
 ### 5.2 Harness 仓库职责
 
-以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任条目已经为只读 PWA 实现，其余是后续能力：
+以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任、Interaction 应答 Scope 检查、认证操作者来源和幂等应答提交已经实现，其余是后续能力：
 
 - 在 `host.describe` 中增加协议版本和能力字段。
 - 提供一个可发布、只包含线协议的客户端契约，其中包含 DTO 类型、Parser、错误码和载体接口。
@@ -237,7 +239,7 @@ Scope 词汇如下：
 | `interaction:answer` | 处理审批、问题和计划审阅请求 |
 | `workspace:review` | 读取 Review API 暴露的有界 Workspace 元数据与 Diff |
 
-已实现的 PWA 授权只有 `session:read`，不包含 Prompt、Interaction 应答、Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
+新配对设备只获得 `session:read`。回环管理操作可以独立添加 `interaction:answer`，该 Scope 只覆盖 Host 创建的审批、问题和计划审阅请求。Prompt、Session 控制、Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级仍不开放。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
 
 ### 8.3 撤销与来源记录
 
@@ -307,6 +309,8 @@ Session 页面包含：
 
 手机布局只使用一个主面板。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
 
+单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之前，使修改操作不依赖历史记录的内层滚动位置。
+
 ### 11.3 未知功能
 
 旧版 Companion 可能连接到包含新插件的 Host。未知 Session Event 继续遵守 Harness Session 格式。对于未知的可选 UI 能力，在能够安全展示时使用带标签的通用状态；客户端无法证明如何回答时不提供操作。应用绝不根据未知操作 Schema 自动生成通用修改表单。
@@ -335,10 +339,17 @@ Session 页面包含：
 - Session 列表、历史、实时只读投影，以及对远程修改的显式拒绝。
 - 中文配对、设备管理、Scope 与撤销界面。
 
-### 阶段 1.5：经过认证的远程控制
+### 阶段 1.5a：经过认证的 Interaction 应答（已实现）
+
+- 由回环页面管理 `interaction:answer` 授权；新配对设备保持只读。
+- 手机端的问题、计划审阅、允许一次和拒绝控件由当前认证授权派生。
+- 按主体隔离的幂等处理、持久操作者来源、按提交顺序发布的 resolved Frame，以及授权替换或撤销后的请求取消。
+- Prompt、排队、中途指令、中断、Settings 与文件系统操作仍保持拒绝。
+
+### 阶段 1.5b：经过认证的远程控制
 
 - 面向独立发布客户端的协议版本与能力协商。
-- 带持久 Actor 来源的 Prompt、排队、中途指令、打断和 Interaction Scope。
+- 带持久 Actor 来源的 Prompt、排队、中途指令和打断 Scope。
 - 前台重新同步、幂等修改与请求取消。
 
 ### 阶段 2：可安装与原生界面
