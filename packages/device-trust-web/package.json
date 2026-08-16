@@ -1,0 +1,12 @@
+{
+  "name": "@dsh-companion/device-trust-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@deepseek-ai/cordis": "link:../../../deepseek-harness/vendor/cordis",
+    "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
+    "@deepseek-ai/dsh-device-trust-connection": "link:../../../deepseek-harness/packages/identity/device-trust-connection"
+  }
+}

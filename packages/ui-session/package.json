@@ -5,9 +5,13 @@
   "type": "module",
   "exports": "./src/index.tsx",
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@dsh-companion/connection": "workspace:*",
-    "@dsh-companion/runtime": "workspace:*",
+    "@deepseek-ai/cordis": "link:../../../deepseek-harness/vendor/cordis",
+    "@deepseek-ai/dsh-api-remotes": "link:../../../deepseek-harness/packages/api/remotes",
+    "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
+    "@deepseek-ai/dsh-client-runtime": "link:../../../deepseek-harness/packages/client/runtime",
+    "@dsh-companion/device-trust-web": "workspace:*",
+    "@deepseek-ai/dsh-llm": "link:../../../deepseek-harness/packages/llm/llm",
+    "@deepseek-ai/dsh-user-questions": "link:../../../deepseek-harness/packages/interaction/user-questions",
     "@dsh-companion/ui-shell": "workspace:*",
     "lucide-react": "^1.31.0",
     "react": "^18.3.1"

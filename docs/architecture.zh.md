@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：初始架构基线
+状态：架构基线；可信只读手机连接已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。当前 Stage 0 实现见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径见 [Host 同源只读 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)。
 
 ## 1. 目标
 
@@ -42,7 +42,7 @@ Harness 负责：
 Companion 负责：
 
 - Host 发现与配对交互。
-- 设备密钥存储和连接状态。
+- 配对页面的临时内存与连接状态。浏览器 JavaScript 永远收不到可复用设备凭据。
 - 可以丢弃并重新构建的本地展示缓存。
 - 手机导航、待处理收件箱、对话展示和输入。
 - 二维码扫描、通知、相机输入、深层链接和安全存储的原生适配器。
@@ -104,30 +104,32 @@ Host 与 Companion 都向中继建立出站连接。配对过程在两台设备�
 
 ### 5.1 Companion 仓库职责
 
-计划中的仓库结构如下：
+当前仓库结构如下：
 
 ```text
 apps/
-  web/                       Host 提供的响应式 PWA 入口
-  native/                    Capacitor 工程和签名静态插件目录
+  web/                       Harness Client 插件图和响应式 Web 入口
 packages/
-  connection/                Connection Service Definition 与最小 Frame 类型
-  connection-fixture/        Stage 0 确定性 Provider
-  runtime/                   Session 与 Attention 的统一权威投影
+  host-web/                  回环限制的 /companion 静态资源 Host 插件
+  device-trust-web/          不依赖 React 的配对 HTTP 客户端与 Cordis Service
   ui-shell/                  Route Registry 与响应式 Shell
-  ui-inbox/                  跨 Session 待处理和结果收件箱
-  ui-session/                Session、Conversation、问题与审批界面
-  ui-settings/               Host、连接、信任与插件状态
+  ui-inbox/                  从 Harness SessionListState 派生的收件箱
+  ui-pairing/                Runtime 启动前的手机配对页
+  ui-session/                Session Header、问题与审批界面
+  ui-settings/               配对 Offer、设备列表、撤销与当前信任 Scope
+scripts/
+  verify-harness.mjs         精确 checkout 与版本校验
+  start-harness.mjs          生成 patch 并启动 dsh web
 docs/
   architecture.md
   architecture.zh.md
 ```
 
-在仓库的 npm 所有权和发布通道确定前，暂不决定 Package 的发布名称。以上目录边界描述职责，而不是最终包名。
+预发布开发通过相邻的 Harness checkout 消费公开 Package，并锁定精确版本与提交。Companion 不再拥有 Stage 0 的 Connection DTO、Fixture Provider 或 Session Runtime；无密钥测试使用 Harness 官方 Fixture。
 
 ### 5.2 Harness 仓库职责
 
-以下工作属于 `deepseek-harness`，不属于 Companion：
+以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任条目已经为只读 PWA 实现，其余是后续能力：
 
 - 在 `host.describe` 中增加协议版本和能力字段。
 - 提供一个可发布、只包含线协议的客户端契约，其中包含 DTO 类型、Parser、错误码和载体接口。
@@ -146,7 +148,7 @@ Companion 必须消费这些契约，不能复制 Host 请求 Schema 并形成�
 
 | 能力 | Service Definition | Provider | Consumer |
 |---|---|---|---|
-| 设备信任 | 验证设备主体、查看授权、撤销信任 | 配对公钥 Provider；测试用内存 Provider | Connection 认证与授权 |
+| 设备信任 | 验证设备主体、查看授权、撤销信任 | 本地摘要支持的 Bearer Provider；后续原生密钥绑定 Provider | Connection 认证与授权 |
 | 远程载体 | 传输经过认证的请求、响应和下行 Envelope | HTTP/WebSocket 直连；出站中继 | API Gateway 与事件传递 |
 | 通知 | 向已注册设备发送不含敏感信息的待处理信号 | Web Push；APNs/FCM 适配器；禁用 Provider | 审批、问题、失败和 Turn 完成事件投影器 |
 
@@ -214,18 +216,18 @@ Session Event 保留其权威序号。Projection 更新继续采用较高序号�
 
 ### 8.1 配对流程
 
-1. 本地 Harness Command 或可信 Host 页面创建一个有效期很短的一次性配对邀请。
-2. 邀请以二维码展示，包含 Host 地址、Host 身份指纹、邀请 ID 和过期时间，不包含可重复使用的 Bearer Credential。
-3. Companion 从本地安全存储创建或加载设备身份，并通过成熟的认证密钥交换实现提交证明。
-4. Harness 验证一次性邀请，记录设备公钥身份，并返回授予的 scope。
-5. 授予控制 scope 前，双方都展示简短验证码或指纹供用户确认。
-6. 邀请以原子方式消费。重复使用、过期或 Host 身份不匹配都必须失败。
+1. Harness 回环页面使用配置的私有 HTTPS Origin 创建一个有效期很短的一次性配对 Offer。
+2. 页面显示包含 Host Origin 与随机 Offer id 的二维码，其中没有可复用设备凭据。
+3. 手机提交设备名称，得到 Claim Secret 与六位验证码。Claim Secret 只保留在页面内存中。
+4. 电脑列出待处理 Claim，操作员核对验证码后批准。
+5. 手机携带 Claim Secret 轮询；批准会设置 Host-only、Secure、HttpOnly、SameSite=Strict Cookie，并重新加载正常 Companion Runtime。
+6. Offer 重用、过期、Claim Secret 不匹配、凭据无效和撤销均安全失败。Poll 响应丢失时可在 Offer 有效期内重试。
 
-密码学原语和握手状态机必须来自持续维护且经过审查的依赖。本项目不定义新的密码协议。
+同源 PWA 使用标准 HTTPS Cookie 与 WebSocket 行为。未来无法使用该 Cookie 的原生客户端需要独立的密钥绑定 Harness Provider，并采用持续维护的密码协议库。
 
 ### 8.2 Scope
 
-初始 scope 词汇如下：
+Scope 词汇如下：
 
 | Scope | 允许的操作 |
 |---|---|
@@ -235,7 +237,7 @@ Session Event 保留其权威序号。Projection 更新继续采用较高序号�
 | `interaction:answer` | 处理审批、问题和计划审阅请求 |
 | `workspace:review` | 读取 Review API 暴露的有界 Workspace 元数据与 Diff |
 
-初始手机授权不包含 Settings、Credentials、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级。远程开放这些操作前，必须分别设计 scope 和确认交互。
+已实现的 PWA 授权只有 `session:read`，不包含 Prompt、Interaction 应答、Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
 
 ### 8.3 撤销与来源记录
 
@@ -264,7 +266,7 @@ Harness 拥有可信设备列表。本地操作员可以立即撤销设备；与
 - 每个请求都使用 Connection 主体和 Host 当前授权执行权限检查。
 - Push Payload 只携带不透明的 Host、Session 和待处理事项标识，以及粗粒度类别。应用打开后重新获取当前状态。
 - 通知绝不包含 Prompt、Tool 参数、Diff、路径、模型输出或 Credential。
-- 原生客户端通过平台插件把长期私钥存入 Keychain/Keystore。PWA 在浏览器支持时使用同源、不可导出的 WebCrypto Key，并在配对时明确说明浏览器 Profile 的信任模型较弱。
+- PWA 接收应用 JavaScript 无法读取的 HttpOnly Bearer Cookie。原生客户端随后通过平台插件把密钥绑定凭据存入 Keychain 或 Keystore。
 - Transcript 缓存应尽量减少；需要保留时使用平台存储加密，并且可以安全丢弃。
 - 初始版本不向远程主体开放敏感 Host 配置 API。
 
@@ -273,7 +275,7 @@ Harness 拥有可信设备列表。本地操作员可以立即撤销设备；与
 Harness 是所有产品状态的权威来源。Companion 可以持久保存：
 
 - 已配对 Host 描述和公开身份指纹。
-- 安全存储中的设备私有身份。
+- 原生密钥绑定 Provider 完成后使用安全存储保存原生设备身份。当前 PWA 不通过应用代码保存认证 Secret。
 - 不含 Secret 的 UI 偏好。
 - 有界的加密展示缓存和最后确认的恢复游标。
 - 带幂等键的本地草稿和未发送操作。
@@ -318,13 +320,26 @@ Session 页面包含：
 - 在电脑浏览器中使用手机和平板视口测试。
 - 不连接远程 Host，也不作出安全性声明。
 
-### 阶段 1：经过认证的直连 PWA
+### 阶段 0.5：回环真实连接（已实现）
 
-- 上游协议版本和能力协商。
+- Harness 同源提供 `/companion/`，并保留原有根页面。
+- 使用公开 Client Connection、API Remotes 与 Client Runtime 读取真实 Session。
+- 从 Host 权威快照派生收件箱，并通过上游 Interaction 应答载体提交问题与审批。
+- Host 插件拒绝非 `127.0.0.1` bind 和不一致的 Harness Package 版本。
+- 只读 Conversation 历史使用 Harness 标准 Definition 与 Runtime 投影；不提供设备身份、局域网访问、Prompt、排队、中途指令或中断操作。
+
+### 阶段 1：经过认证的只读直连 PWA（已实现）
+
 - 包含二维码配对、scope 和撤销的设备信任能力。
 - 通过局域网或 Tailscale 使用 HTTPS/WebSocket 直连。
-- Session 列表、历史、实时流、Prompt、排队、中途指令、中断和交互处理。
-- 回到前台时重新同步，并确保修改操作幂等。
+- Session 列表、历史、实时只读投影，以及对远程修改的显式拒绝。
+- 中文配对、设备管理、Scope 与撤销界面。
+
+### 阶段 1.5：经过认证的远程控制
+
+- 面向独立发布客户端的协议版本与能力协商。
+- 带持久 Actor 来源的 Prompt、排队、中途指令、打断和 Interaction Scope。
+- 前台重新同步、幂等修改与请求取消。
 
 ### 阶段 2：可安装与原生界面
 
@@ -385,7 +400,7 @@ Session 页面包含：
 - 直连发现只使用二维码，还是在配对安全完成后增加 mDNS。
 - 中继对加密 Envelope 的保留策略。
 - 自托管部署使用的 Push Provider 策略。
-- 能够支持独立发布客户端，同时不导入 Host 实现代码的最小上游线协议 Package；当前 Fixture Frame 不是该 Package 的替代品。
+- 能够支持独立发布客户端的完整上游 Package 集与协议兼容信息；当前同版本源码组合不构成独立发布承诺。
 
 ## 16. 参考实现
 
