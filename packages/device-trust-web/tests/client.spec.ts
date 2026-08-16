@@ -61,7 +61,7 @@ describe('browser device trust client', () => {
             device: {
               deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
               label: '我的手机',
-              scopes: ['session:read', 'interaction:answer'],
+              scopes: ['session:read', 'session:prompt', 'interaction:answer'],
             },
           })
         : jsonResponse({ updated: true }),
@@ -70,7 +70,7 @@ describe('browser device trust client', () => {
     try {
       await expect(client.currentDevice()).resolves.toMatchObject({
         label: '我的手机',
-        scopes: ['session:read', 'interaction:answer'],
+        scopes: ['session:read', 'session:prompt', 'interaction:answer'],
       })
       await client.updateScopes(
         'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -105,6 +105,34 @@ describe('browser device trust client', () => {
 })
 
 describe('Companion device trust service', () => {
+  it('derives prompt and interaction capabilities from the authenticated device grant', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse({
+      device: {
+        deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        label: '我的手机',
+        scopes: ['session:read', 'session:prompt'],
+      },
+    }))))
+    const ctx = new Context()
+    ctx.provide('connection', {
+      isLoopback: false,
+      hostDescription: {
+        getSnapshot: () => undefined,
+        subscribe: () => () => {},
+      },
+    } as unknown as ConnectionHandle)
+    const fiber = ctx.plugin(CompanionDeviceTrustService)
+
+    try {
+      await fiber.await()
+      expect(ctx.companionDeviceTrust.canPrompt()).toBe(true)
+      expect(ctx.companionDeviceTrust.canAnswerInteractions()).toBe(false)
+    } finally {
+      await fiber.dispose()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('publishes an unpaired state when the Host explicitly rejects the device credential', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse({
       error: { code: 'device-unauthorized', message: 'paired-device credential is missing' },

@@ -33,6 +33,11 @@ test('handles Harness Fixture questions and approval through the real client run
   await allowButton.click()
   await expect(page.getByText('dangerous_tool', { exact: true })).toHaveCount(0)
 
+  const remotePrompt = '手机排队的下一项工作'
+  await page.getByRole('textbox', { name: '排队消息' }).fill(remotePrompt)
+  await page.getByRole('button', { name: '排队发送', exact: true }).click()
+  await expect(page.getByText(remotePrompt, { exact: true })).toBeVisible()
+
   const navLabel = test.info().project.name === 'desktop' ? '桌面主导航' : '移动主导航'
   await page.getByRole('navigation', { name: navLabel }).getByRole('button', { name: /收件箱/ }).click()
   await expect(page.getByTestId('attention-pending:fx-alpha')).toHaveCount(0)
@@ -114,6 +119,33 @@ test('guides an unpaired remote browser without starting the client runtime', as
   await expect(page.getByRole('heading', { name: '这台手机还没有配对', exact: true })).toBeVisible()
   await expect(page.getByText('请在电脑端打开 Companion 设置，选择“配对新手机”，再用这台手机扫描二维码。', { exact: true })).toBeVisible()
   await expect(page.getByText('DSH Companion 启动失败', { exact: true })).toHaveCount(0)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('keeps remote prompt input hidden until the device receives its explicit grant', async ({ page }) => {
+  let scopes: string[] = ['session:read']
+  await page.route('**/api/device-pairing.current', async route => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        device: {
+          deviceId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          label: '测试手机',
+          scopes,
+        },
+      }),
+    })
+  })
+
+  await page.goto('http://companion.test:4173/companion/sessions/fx-alpha?fixture')
+  await expect(page.getByText('此设备只有查看权限，请在电脑端授权“发送排队消息”', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '排队消息' })).toHaveCount(0)
+
+  scopes = ['session:read', 'session:prompt']
+  await page.reload()
+  await expect(page.getByRole('textbox', { name: '排队消息' })).toBeVisible()
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)

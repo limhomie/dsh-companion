@@ -179,6 +179,11 @@ export class CompanionDeviceTrustService extends Service {
     return this.isLocal || this.currentDevice?.scopes.includes('interaction:answer') === true
   }
 
+  /** Local pages may submit prompts; paired devices require the explicit queue-prompt grant. */
+  canPrompt(): boolean {
+    return this.isLocal || this.currentDevice?.scopes.includes('session:prompt') === true
+  }
+
   /**
    * Classify the browser authority after service initialization.
    * @returns `local` for loopback, `paired` for a valid device Cookie, or `unpaired` for an explicit authentication rejection.

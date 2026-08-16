@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; trusted phone interaction answers implemented
+Status: architecture baseline; trusted phone interaction answers and text queue input implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md) and [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), and [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md).
 
 ## 1. Purpose
 
@@ -233,12 +233,12 @@ The scope vocabulary is:
 | Scope | Allows |
 |---|---|
 | `session:read` | List authorized sessions and read their transcripts and projections |
-| `session:prompt` | Create a session and submit or queue user input |
+| `session:prompt` | Submit non-empty text for the next turn of an existing ordinary session |
 | `session:control` | Steer, interrupt, resume, archive, and rename sessions |
 | `interaction:answer` | Resolve approval, question, and plan-review requests |
 | `workspace:review` | Read bounded workspace metadata and diffs exposed by a review API |
 
-Newly paired devices receive only `session:read`. Loopback administration may separately add `interaction:answer`, which covers Host-created approval, question, and plan-review requests. Prompts, Session control, settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation remain excluded. Every later remote operation needs an explicit scope and confirmation design before exposure.
+Newly paired devices receive only `session:read`. Loopback administration may separately add `session:prompt` and `interaction:answer`. The former covers only non-empty text queued for an existing ordinary session, not session creation, steering, images, interruption, or queue editing; the latter covers Host-created approval, question, and plan-review requests. Settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation remain excluded. Every later remote operation needs an explicit scope and confirmation design before exposure.
 
 ### 8.3 Revocation and provenance
 
@@ -345,10 +345,17 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Principal-isolated idempotency, durable actor provenance, commit-ordered resolved frames, and request cancellation after grant replacement or revocation.
 - Prompt, queue, steer, interrupt, settings, and filesystem operations remain denied.
 
-### Phase 1.5b: authenticated remote control
+### Phase 1.5b: authenticated session queue input (implemented)
+
+- Loopback settings independently grant `session:prompt` to one device; newly paired devices remain read-only.
+- Phones submit non-empty text to existing ordinary sessions and render results from the Host-authoritative queue and session events.
+- Prompt operation ids, durable actor provenance, duplicate handling in memory and after log recovery, and pre-commit cancellation after grant revocation.
+- Session creation, steering, images, interruption, queue editing, settings, and filesystem operations remain denied.
+
+### Phase 1.5c: authenticated remote control
 
 - Protocol version and capability negotiation for independently released clients.
-- Prompt, queue, steer, and interrupt scopes with durable actor provenance.
+- Steering and interruption scopes with durable actor provenance.
 - Foreground resynchronization, idempotent mutations, and request cancellation.
 
 ### Phase 2: installable and native surfaces

@@ -31,7 +31,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `cccabc6c2378bdbc7850fb8f27a68f018810af03`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
+Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `9615d6ef5bc01a007a31dcf0790261f0cc259711`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
 
 首次准备 Harness：
 

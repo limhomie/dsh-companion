@@ -904,6 +904,137 @@ h2 {
   font-size: 12px;
 }
 
+.prompt-composer {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.prompt-heading,
+.prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prompt-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prompt-heading > div > span {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.prompt-heading h2 {
+  font-size: 16px;
+}
+
+.prompt-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.prompt-queue {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 12px 0 0;
+  overflow: hidden;
+  background: var(--line);
+  list-style: none;
+  counter-reset: prompt-queue;
+}
+
+.prompt-queue li {
+  min-width: 0;
+  padding: 9px 10px;
+  overflow: hidden;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  counter-increment: prompt-queue;
+}
+
+.prompt-queue li::before {
+  margin-right: 8px;
+  color: var(--green);
+  content: counter(prompt-queue) '.';
+  font-weight: 700;
+}
+
+.prompt-form {
+  margin-top: 12px;
+}
+
+.prompt-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 82px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--surface-subtle);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.prompt-form textarea:focus {
+  border-color: var(--green);
+  outline: 2px solid rgb(38 122 78 / 14%);
+}
+
+.prompt-form textarea:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.prompt-actions {
+  margin-top: 10px;
+}
+
+.prompt-actions > span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.prompt-unavailable {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-top: 12px;
+  color: var(--text-muted);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.prompt-unavailable svg {
+  flex: 0 0 auto;
+  color: var(--green);
+}
+
 .interaction-panel {
   margin-top: 20px;
   padding: 16px;
@@ -1265,6 +1396,50 @@ h2 {
   gap: 6px;
 }
 
+.device-permissions {
+  padding: 4px 2px 10px 50px;
+  border-bottom: 1px solid var(--line);
+}
+
+.device-permissions > label {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.device-permissions > label + label {
+  border-top: 1px solid var(--line);
+}
+
+.device-permissions > label > span:first-child {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  color: var(--green);
+}
+
+.device-permissions > label > span:first-child > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.device-permissions strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.device-permissions small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .permission-toggle {
   position: relative;
   display: inline-flex;
@@ -1622,6 +1797,19 @@ h2 {
 
   .interaction-actions .button {
     width: 100%;
+  }
+
+  .prompt-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .prompt-actions .button {
+    width: 100%;
+  }
+
+  .device-permissions {
+    padding-left: 2px;
   }
 }
 

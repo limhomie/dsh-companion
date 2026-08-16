@@ -7,6 +7,7 @@ import {
   LoaderCircle,
   MonitorCog,
   QrCode,
+  Send,
   Settings,
   ShieldCheck,
   Smartphone,
@@ -53,7 +54,10 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
   const [devices, setDevices] = useState<readonly TrustedDeviceResponse[]>([])
   const [working, setWorking] = useState<string>()
   const [revokeTarget, setRevokeTarget] = useState<string>()
-  const [answerTarget, setAnswerTarget] = useState<string>()
+  const [permissionTarget, setPermissionTarget] = useState<{
+    deviceId: string
+    scope: 'session:prompt' | 'interaction:answer'
+  }>()
   const [error, setError] = useState<string>()
 
   const refreshDevices = async (): Promise<void> => {
@@ -143,15 +147,21 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
     }
   }
 
-  const setAnswerPermission = async (deviceId: string, enabled: boolean): Promise<void> => {
-    setWorking(`scope:${deviceId}`)
+  const setPermission = async (
+    device: TrustedDeviceResponse,
+    scope: 'session:prompt' | 'interaction:answer',
+    enabled: boolean,
+  ): Promise<void> => {
+    setWorking(`scope:${device.deviceId}:${scope}`)
     setError(undefined)
     try {
-      await trust.client.updateScopes(
-        deviceId,
-        enabled ? ['session:read', 'interaction:answer'] : ['session:read'],
-      )
-      setAnswerTarget(undefined)
+      const selected = new Set(device.scopes)
+      if (enabled) selected.add(scope)
+      else selected.delete(scope)
+      const scopes = (['session:read', 'session:prompt', 'interaction:answer'] as const)
+        .filter(candidate => selected.has(candidate))
+      await trust.client.updateScopes(device.deviceId, scopes)
+      setPermissionTarget(undefined)
       await refreshDevices()
     } catch (cause) {
       setError(displayError(cause))
@@ -201,24 +211,11 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
             <div>
               <strong>{device.label}</strong>
               <span>{device.revokedAt === undefined
-                ? `${device.scopes.includes('interaction:answer') ? '可查看和回答' : '仅查看'} · ${timeLabel(device.expiresAt)} 到期`
+                ? `${device.scopes.includes('session:prompt') ? '可发送' : '仅查看'}${device.scopes.includes('interaction:answer') ? '、可回答' : ''} · ${timeLabel(device.expiresAt)} 到期`
                 : '已撤销'}</span>
             </div>
             {device.revokedAt === undefined && (
               <span className="device-actions">
-                <label className="permission-toggle" title="允许这台设备回答问题和审批">
-                  <input
-                    type="checkbox"
-                    aria-label={`允许 ${device.label} 回答`}
-                    checked={device.scopes.includes('interaction:answer')}
-                    disabled={working !== undefined}
-                    onChange={event => {
-                      if (event.target.checked) setAnswerTarget(device.deviceId)
-                      else void setAnswerPermission(device.deviceId, false)
-                    }}
-                  />
-                  <span aria-hidden="true" />
-                </label>
                 {revokeTarget !== device.deviceId ? (
                   <button className="icon-button danger" title="撤销设备" aria-label={`撤销 ${device.label}`} type="button" onClick={() => { setRevokeTarget(device.deviceId) }}>
                     <Trash2 aria-hidden="true" size={18} />
@@ -232,16 +229,56 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
               </span>
             )}
           </div>
-          {answerTarget === device.deviceId && (
-            <div className="permission-confirm" role="dialog" aria-label={`确认 ${device.label} 的回答权限`}>
-              <ShieldCheck aria-hidden="true" size={19} />
+          {device.revokedAt === undefined && (
+            <div className="device-permissions" aria-label={`${device.label} 的权限`}>
+              <label>
+                <span><Send aria-hidden="true" size={17} /><span><strong>发送排队消息</strong><small>向已有 Session 添加纯文本任务</small></span></span>
+                <span className="permission-toggle" title="允许这台设备发送排队消息">
+                  <input
+                    type="checkbox"
+                    aria-label={`允许 ${device.label} 发送排队消息`}
+                    checked={device.scopes.includes('session:prompt')}
+                    disabled={working !== undefined}
+                    onChange={event => {
+                      if (event.target.checked) setPermissionTarget({ deviceId: device.deviceId, scope: 'session:prompt' })
+                      else void setPermission(device, 'session:prompt', false)
+                    }}
+                  />
+                  <span aria-hidden="true" />
+                </span>
+              </label>
+              <label>
+                <span><ShieldCheck aria-hidden="true" size={17} /><span><strong>处理问题与审批</strong><small>回答 Agent，并允许或拒绝一次工具操作</small></span></span>
+                <span className="permission-toggle" title="允许这台设备回答问题和审批">
+                  <input
+                    type="checkbox"
+                    aria-label={`允许 ${device.label} 回答问题和审批`}
+                    checked={device.scopes.includes('interaction:answer')}
+                    disabled={working !== undefined}
+                    onChange={event => {
+                      if (event.target.checked) setPermissionTarget({ deviceId: device.deviceId, scope: 'interaction:answer' })
+                      else void setPermission(device, 'interaction:answer', false)
+                    }}
+                  />
+                  <span aria-hidden="true" />
+                </span>
+              </label>
+            </div>
+          )}
+          {permissionTarget?.deviceId === device.deviceId && (
+            <div className="permission-confirm" role="dialog" aria-label={`确认 ${device.label} 的设备权限`}>
+              {permissionTarget.scope === 'session:prompt'
+                ? <Send aria-hidden="true" size={19} />
+                : <ShieldCheck aria-hidden="true" size={19} />}
               <div>
-                <strong>允许处理问题与审批？</strong>
-                <span>这台设备可以回答 Agent，并允许或拒绝一次工具操作。</span>
+                <strong>{permissionTarget.scope === 'session:prompt' ? '允许发送排队消息？' : '允许处理问题与审批？'}</strong>
+                <span>{permissionTarget.scope === 'session:prompt'
+                  ? '这台设备可以向已有 Session 添加会被 Agent 执行的纯文本任务。'
+                  : '这台设备可以回答 Agent，并允许或拒绝一次工具操作。'}</span>
               </div>
               <span className="confirm-actions">
-                <button className="icon-button" title="取消" aria-label="取消授权" type="button" onClick={() => { setAnswerTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
-                <button className="button primary" type="button" disabled={working !== undefined} onClick={() => { void setAnswerPermission(device.deviceId, true) }}><ShieldCheck aria-hidden="true" size={17} />确认</button>
+                <button className="icon-button" title="取消" aria-label="取消授权" type="button" onClick={() => { setPermissionTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
+                <button className="button primary" type="button" disabled={working !== undefined} onClick={() => { void setPermission(device, permissionTarget.scope, true) }}><ShieldCheck aria-hidden="true" size={17} />确认</button>
               </span>
             </div>
           )}
@@ -299,9 +336,11 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
             <span className="settings-icon"><KeyRound aria-hidden="true" size={20} /></span>
             <div>
               <strong>{currentDevice?.label ?? '可信设备'}</strong>
-              <span>{currentDevice?.scopes.includes('interaction:answer') === true
-                ? '可查看 Session、回答问题和处理一次性审批'
-                : '仅可查看 Session'}</span>
+              <span>{currentDevice?.scopes.includes('session:prompt') === true
+                ? `可查看 Session 和发送排队消息${currentDevice.scopes.includes('interaction:answer') ? '，也可回答与审批' : ''}`
+                : currentDevice?.scopes.includes('interaction:answer') === true
+                  ? '可查看 Session、回答问题和处理一次性审批'
+                  : '仅可查看 Session'}</span>
             </div>
             <CheckCircle2 aria-label="已认证" size={18} />
           </div>

@@ -11,6 +11,7 @@ export default defineConfig({
     launchOptions: {
       args: [
         '--host-resolver-rules=MAP companion.test 127.0.0.1',
+        '--unsafely-treat-insecure-origin-as-secure=http://companion.test:4173',
         '--no-proxy-server',
       ],
     },

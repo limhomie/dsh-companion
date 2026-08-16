@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：架构基线；可信手机 Interaction 应答已实现
+状态：架构基线；可信手机 Interaction 应答与纯文本排队输入已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)和[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)和[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)共同记录。
 
 ## 1. 目标
 
@@ -234,12 +234,12 @@ Scope 词汇如下：
 | Scope | 允许的操作 |
 |---|---|
 | `session:read` | 列出已授权 Session，并读取 Transcript 和 Projection |
-| `session:prompt` | 创建 Session，提交或排队用户输入 |
+| `session:prompt` | 向已有普通 Session 提交非空纯文本下一轮输入 |
 | `session:control` | 向 Session 追加指令、中断、继续、归档和重命名 |
 | `interaction:answer` | 处理审批、问题和计划审阅请求 |
 | `workspace:review` | 读取 Review API 暴露的有界 Workspace 元数据与 Diff |
 
-新配对设备只获得 `session:read`。回环管理操作可以独立添加 `interaction:answer`，该 Scope 只覆盖 Host 创建的审批、问题和计划审阅请求。Prompt、Session 控制、Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级仍不开放。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
+新配对设备只获得 `session:read`。回环管理操作可以独立添加 `session:prompt` 与 `interaction:answer`。前者只允许已有普通 Session 的非空纯文本 Queue Input，不包含新建 Session、中途指令、图片、停止或队列编辑；后者只覆盖 Host 创建的审批、问题和计划审阅请求。Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级仍不开放。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
 
 ### 8.3 撤销与来源记录
 
@@ -346,10 +346,17 @@ Session 页面包含：
 - 按主体隔离的幂等处理、持久操作者来源、按提交顺序发布的 resolved Frame，以及授权替换或撤销后的请求取消。
 - Prompt、排队、中途指令、中断、Settings 与文件系统操作仍保持拒绝。
 
-### 阶段 1.5b：经过认证的远程控制
+### 阶段 1.5b：经过认证的 Session 排队输入（已实现）
+
+- 回环设置为单台设备独立授予 `session:prompt`，新配对设备仍然只读。
+- 手机向已有普通 Session 提交非空纯文本 Queue Input，并从 Host 权威 Queue 和 Session Event 显示结果。
+- Prompt Operation id、持久 Actor 来源、进程内与日志恢复后的重复提交处理，以及授权撤销前的提交检查。
+- 新建 Session、中途指令、图片、停止、队列编辑、Settings 与文件系统操作仍保持拒绝。
+
+### 阶段 1.5c：经过认证的远程控制
 
 - 面向独立发布客户端的协议版本与能力协商。
-- 带持久 Actor 来源的 Prompt、排队、中途指令和打断 Scope。
+- 带持久 Actor 来源的中途指令和打断 Scope。
 - 前台重新同步、幂等修改与请求取消。
 
 ### 阶段 2：可安装与原生界面
