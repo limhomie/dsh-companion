@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useState, useSyncExternalStore } from 'react'
 import {
   Blocks,
   CheckCircle2,
@@ -53,6 +53,7 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
   const [devices, setDevices] = useState<readonly TrustedDeviceResponse[]>([])
   const [working, setWorking] = useState<string>()
   const [revokeTarget, setRevokeTarget] = useState<string>()
+  const [ownerTarget, setOwnerTarget] = useState<string>()
   const [error, setError] = useState<string>()
 
   const refreshDevices = async (): Promise<void> => {
@@ -142,6 +143,23 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
     }
   }
 
+  const setAccess = async (
+    device: TrustedDeviceResponse,
+    access: TrustedDeviceResponse['access'],
+  ): Promise<void> => {
+    setWorking(`access:${device.deviceId}`)
+    setError(undefined)
+    try {
+      await trust.client.updateAccess(device.deviceId, access)
+      setOwnerTarget(undefined)
+      await refreshDevices()
+    } catch (cause) {
+      setError(displayError(cause))
+    } finally {
+      setWorking(undefined)
+    }
+  }
+
   return (
     <>
       <button className="settings-action" type="button" disabled={working !== undefined} onClick={() => { void createOffer() }}>
@@ -177,24 +195,64 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
       ))}
 
       {devices.map(device => (
-        <div className="trusted-device" data-revoked={device.revokedAt !== undefined} key={device.deviceId}>
-          <span className="settings-icon muted"><Smartphone aria-hidden="true" size={20} /></span>
-          <div>
-            <strong>{device.label}</strong>
-            <span>{device.revokedAt === undefined ? `只读 · ${timeLabel(device.expiresAt)} 到期` : '已撤销'}</span>
+        <Fragment key={device.deviceId}>
+          <div className="trusted-device" data-revoked={device.revokedAt !== undefined}>
+            <span className="settings-icon muted"><Smartphone aria-hidden="true" size={20} /></span>
+            <div>
+              <strong>{device.label}</strong>
+              <span>{device.revokedAt === undefined
+                ? `${device.access === 'owner' ? '完整控制' : '仅查看'} · ${timeLabel(device.expiresAt)} 到期`
+                : '已撤销'}</span>
+            </div>
+            {device.revokedAt === undefined && (
+              <span className="device-actions">
+                {revokeTarget !== device.deviceId ? (
+                  <button className="icon-button danger" title="撤销设备" aria-label={`撤销 ${device.label}`} type="button" onClick={() => { setRevokeTarget(device.deviceId) }}>
+                    <Trash2 aria-hidden="true" size={18} />
+                  </button>
+                ) : (
+                  <span className="confirm-actions">
+                    <button className="icon-button" title="取消" aria-label="取消撤销" type="button" onClick={() => { setRevokeTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
+                    <button className="icon-button danger" title="确认撤销" aria-label={`确认撤销 ${device.label}`} type="button" disabled={working !== undefined} onClick={() => { void revoke(device.deviceId) }}><CheckCircle2 aria-hidden="true" size={18} /></button>
+                  </span>
+                )}
+              </span>
+            )}
           </div>
-          {device.revokedAt === undefined && revokeTarget !== device.deviceId && (
-            <button className="icon-button danger" title="撤销设备" aria-label={`撤销 ${device.label}`} type="button" onClick={() => { setRevokeTarget(device.deviceId) }}>
-              <Trash2 aria-hidden="true" size={18} />
-            </button>
+          {device.revokedAt === undefined && (
+            <div className="device-permissions" aria-label={`${device.label} 的访问级别`}>
+              <label>
+                <span><ShieldCheck aria-hidden="true" size={17} /><span><strong>完整控制</strong><small>使用 Harness 官方客户端的远程功能</small></span></span>
+                <span className="permission-toggle" title="允许这台设备完整控制 Harness">
+                  <input
+                    type="checkbox"
+                    aria-label={`允许 ${device.label} 完整控制 Harness`}
+                    checked={device.access === 'owner'}
+                    disabled={working !== undefined}
+                    onChange={event => {
+                      if (event.target.checked) setOwnerTarget(device.deviceId)
+                      else void setAccess(device, 'viewer')
+                    }}
+                  />
+                  <span aria-hidden="true" />
+                </span>
+              </label>
+            </div>
           )}
-          {device.revokedAt === undefined && revokeTarget === device.deviceId && (
-            <span className="confirm-actions">
-              <button className="icon-button" title="取消" aria-label="取消撤销" type="button" onClick={() => { setRevokeTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
-              <button className="icon-button danger" title="确认撤销" aria-label={`确认撤销 ${device.label}`} type="button" disabled={working !== undefined} onClick={() => { void revoke(device.deviceId) }}><CheckCircle2 aria-hidden="true" size={18} /></button>
-            </span>
+          {ownerTarget === device.deviceId && (
+            <div className="permission-confirm" role="dialog" aria-label={`确认 ${device.label} 的设备权限`}>
+              <ShieldCheck aria-hidden="true" size={19} />
+              <div>
+                <strong>允许完整控制 Harness？</strong>
+                <span>这台设备可以运行命令、修改 Workspace、创建和控制 Session、处理审批，并更改设置与 Credential。</span>
+              </div>
+              <span className="confirm-actions">
+                <button className="icon-button" title="取消" aria-label="取消授权" type="button" onClick={() => { setOwnerTarget(undefined) }}><X aria-hidden="true" size={18} /></button>
+                <button className="button primary" type="button" disabled={working !== undefined} onClick={() => { void setAccess(device, 'owner') }}><ShieldCheck aria-hidden="true" size={17} />确认</button>
+              </span>
+            </div>
           )}
-        </div>
+        </Fragment>
       ))}
     </>
   )
@@ -205,6 +263,7 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
     connection.hostDescription.subscribe,
     connection.hostDescription.getSnapshot,
   )
+  const currentDevice = useSyncExternalStore(trust.subscribe, trust.getSnapshot)
 
   return (
     <div className="page page-settings">
@@ -245,7 +304,10 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
         ) : (
           <div className="settings-row">
             <span className="settings-icon"><KeyRound aria-hidden="true" size={20} /></span>
-            <div><strong>可信设备</strong><span>session:read · 仅查看 Session</span></div>
+            <div>
+              <strong>{currentDevice?.label ?? '可信设备'}</strong>
+              <span>{currentDevice?.access === 'owner' ? '可使用 Harness 官方客户端完整控制' : '仅可查看 Session'}</span>
+            </div>
             <CheckCircle2 aria-label="已认证" size={18} />
           </div>
         )}

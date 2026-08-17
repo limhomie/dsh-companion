@@ -57,7 +57,7 @@ Runtime 在非 connected 状态拒绝修改，并区分 NOT_CONNECTED、STALE_IN
 
 收件箱是首屏，按问题、审批、完成和失败展示跨 Session 事项。手机使用底部三个导航目的地，桌面使用固定侧栏；两种布局装载相同插件并读取同一 Runtime Snapshot。
 
-Session 页面使用单主列，依次展示紧凑上下文、Conversation 和内联 Interaction。审批只展示 Fixture Host 提供的 Tool、命令、风险和说明字段。设置页明确显示演示数据、未配置真实设备身份，并提供重新连接操作。
+Session 页面使用单主列，依次展示紧凑上下文、内联 Interaction 和 Conversation。待处理操作位于有独立滚动区域的历史之前，使审批与回答在手机首屏可达。审批只展示 Fixture Host 提供的 Tool、命令、风险和说明字段。设置页明确显示演示数据、未配置真实设备身份，并提供重新连接操作。
 
 所有图标来自 Lucide。界面没有 Marketing Hero、嵌套卡片或远程 Schema 生成的高风险表单。
 
@@ -71,9 +71,9 @@ Stage 0 不连接真实 Harness，不生成设备身份，不发送通知，也�
 
 - `pnpm run typecheck` 覆盖严格 TypeScript 接口和 Package 消费关系。
 - `pnpm run lint` 覆盖代码静态检查。
-- `pnpm run test` 通过 7 个测试，覆盖 Provider 注册与卸载、UI Contribution 卸载、基线派生、重复提交复用、权威 resolved 提交点和重连期间拒绝修改。
+- `pnpm run test` 通过 11 个测试，覆盖 Provider 注册与卸载、UI Contribution 卸载、基线派生、重复提交复用、权威 resolved 提交点和重连期间拒绝修改。
 - `pnpm run build` 从真实 Web Entry 生成 Vite 生产产物。
-- `pnpm run test:web` 在 390x844、430x932 和 1280x800 的 Chrome 视口通过 6 条流程，覆盖回答问题、提交中、resolved 后移除事项、reconnecting、resyncing 和横向溢出。
+- `pnpm run test:web` 在 390x844、430x932 和 1280x800 的 Chrome 视口通过 12 条流程，覆盖待处理操作首屏可达、回答问题、提交中、resolved 后移除事项、reconnecting、resyncing 和横向溢出。
 - 浏览器人工检查覆盖手机收件箱、Session 问题、提交中、resolved、设置以及桌面收件箱；页面控制台没有错误。
 
 ## Alternatives considered

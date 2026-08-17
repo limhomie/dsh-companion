@@ -1,5 +1,8 @@
+import { Context } from '@deepseek-ai/cordis'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  CompanionDeviceTrustService,
   DeviceTrustClientError,
   DeviceTrustHttpClient,
 } from '../src/index.ts'
@@ -51,6 +54,38 @@ describe('browser device trust client', () => {
     await malformed.close()
   })
 
+  it('reads and replaces paired-device access through exact endpoints', async () => {
+    const request = vi.fn<(input: string, init: RequestInit) => Promise<Response>>((input) => Promise.resolve(
+      input === '/api/device-pairing.current'
+        ? jsonResponse({
+            device: {
+              deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              label: '我的手机',
+              access: 'owner',
+            },
+          })
+        : jsonResponse({ updated: true }),
+    ))
+    const client = new DeviceTrustHttpClient(request)
+    try {
+      await expect(client.currentDevice()).resolves.toMatchObject({
+        label: '我的手机',
+        access: 'owner',
+      })
+      await client.updateAccess('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'viewer')
+      expect(request.mock.calls.map(call => call[0])).toEqual([
+        '/api/device-pairing.current',
+        '/api/device-pairing.access',
+      ])
+      expect(JSON.parse(String(request.mock.calls[1]?.[1].body))).toEqual({
+        deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        access: 'viewer',
+      })
+    } finally {
+      await client.close()
+    }
+  })
+
   it('aborts and awaits an in-flight request when closed', async () => {
     const request = vi.fn((_input: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
       init.signal?.addEventListener('abort', () => {
@@ -63,5 +98,58 @@ describe('browser device trust client', () => {
     await client.close()
     await rejected
     await expect(client.createOffer()).rejects.toMatchObject({ kind: 'closed' })
+  })
+})
+
+describe('Companion device trust service', () => {
+  it('derives prompt and interaction capabilities from owner access', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse({
+      device: {
+        deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        label: '我的手机',
+        access: 'owner',
+      },
+    }))))
+    const ctx = new Context()
+    ctx.provide('connection', {
+      isLoopback: false,
+      hostDescription: {
+        getSnapshot: () => undefined,
+        subscribe: () => () => {},
+      },
+    } as unknown as ConnectionHandle)
+    const fiber = ctx.plugin(CompanionDeviceTrustService)
+
+    try {
+      await fiber.await()
+      expect(ctx.companionDeviceTrust.canPrompt()).toBe(true)
+      expect(ctx.companionDeviceTrust.canAnswerInteractions()).toBe(true)
+    } finally {
+      await fiber.dispose()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('publishes an unpaired state when the Host explicitly rejects the device credential', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse({
+      error: { code: 'device-unauthorized', message: 'paired-device credential is missing' },
+    }, 401))))
+    const ctx = new Context()
+    ctx.provide('connection', {
+      isLoopback: false,
+      hostDescription: {
+        getSnapshot: () => undefined,
+        subscribe: () => () => {},
+      },
+    } as unknown as ConnectionHandle)
+    const fiber = ctx.plugin(CompanionDeviceTrustService)
+
+    try {
+      await fiber.await()
+      expect(ctx.companionDeviceTrust.getTrustState()).toBe('unpaired')
+    } finally {
+      await fiber.dispose()
+      vi.unstubAllGlobals()
+    }
   })
 })

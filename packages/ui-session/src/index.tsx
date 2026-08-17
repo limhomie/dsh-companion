@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import type { FormEvent } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -10,14 +11,17 @@ import {
   LoaderCircle,
   MessageSquare,
   Play,
+  Send,
   ShieldCheck,
   X,
 } from 'lucide-react'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ConnectionHandle, HostDescription } from '@deepseek-ai/dsh-client-connection/client'
+import type { ConnectionHandle, HostDescription, RpcError } from '@deepseek-ai/dsh-client-connection/client'
+import { OperationId } from '@deepseek-ai/dsh-client-connection/client'
 import type { AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types'
 import type {
   ISessions,
+  ConversationSnapshot,
   PendingInteraction,
   SessionFace,
   SessionSummary,
@@ -104,6 +108,13 @@ function useHost(connection: ConnectionHandle): HostDescription | undefined {
   )
 }
 
+function responseError(reason: string): Error {
+  if (reason === 'forbidden') return new Error('此设备没有回答权限，或权限刚刚被撤销')
+  if (reason === 'conflict') return new Error('其他设备正在处理这项待办，请等待同步结果')
+  if (reason === 'not-pending') return new Error('这项待处理事项已在其他设备完成')
+  return new Error(`Host 拒绝了这次应答：${reason}`)
+}
+
 function ApprovalPanel({ wait, connected }: { wait: ApprovalWait; connected: boolean }) {
   const [state, setState] = useState<'idle' | 'submitting' | 'failed'>('idle')
   const [error, setError] = useState<string>()
@@ -115,7 +126,7 @@ function ApprovalPanel({ wait, connected }: { wait: ApprovalWait; connected: boo
       ok: true,
       value: { sessionId: wait.sessionId, approvalId: wait.payload.approvalId, outcome },
     }).then(receipt => {
-      if (!receipt.accepted) throw new Error(`Host 拒绝了这次应答：${receipt.reason}`)
+      if (!receipt.accepted) throw responseError(receipt.reason)
     }).catch((cause: unknown) => {
       setState('failed')
       setError(cause instanceof Error ? cause.message : '提交失败')
@@ -179,7 +190,7 @@ function QuestionPanel({ wait, connected }: { wait: QuestionWait; connected: boo
       ok: true,
       value: { sessionId: wait.sessionId, answer: { answers } },
     }).then(receipt => {
-      if (!receipt.accepted) throw new Error(`Host 拒绝了这次应答：${receipt.reason}`)
+      if (!receipt.accepted) throw responseError(receipt.reason)
     }).catch((cause: unknown) => {
       setState('failed')
       setError(cause instanceof Error ? cause.message : '提交失败')
@@ -245,10 +256,99 @@ function PendingPanel({ wait, connected }: { wait: PendingInteraction; connected
   }
 }
 
-function SessionConversation({ session, connected, allowInteractions }: {
+function promptErrorMessage(error: RpcError): string {
+  switch (error.code) {
+    case 'forbidden': return '此设备没有发送权限，或权限刚刚被撤销'
+    case 'operation-conflict': return '这次重试与已提交的消息不一致，请重新编辑后发送'
+    case 'session-not-found': return '这个 Session 已不存在'
+    case 'agent-busy': return 'Harness 暂时无法接收这条消息'
+    case 'cancelled': return '发送已取消，可以直接重试'
+    default: return error.message
+  }
+}
+
+function PromptComposer({ session, snapshot, connected, allowPrompt }: {
+  session: SessionFace
+  snapshot: ConversationSnapshot
+  connected: boolean
+  allowPrompt: boolean
+}) {
+  const [draft, setDraft] = useState('')
+  const [operation, setOperation] = useState<ReturnType<typeof OperationId>>()
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string>()
+  const queued = snapshot.queue.filter(item => item.placement === 'queued')
+  const ordinary = snapshot.subagent === null
+  const available = allowPrompt && ordinary && !snapshot.removed
+  const text = draft.trim()
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!connected || !available || submitting || text === '') return
+    const operationId = operation ?? OperationId(globalThis.crypto.randomUUID())
+    setOperation(operationId)
+    setSubmitting(true)
+    setError(undefined)
+    void session.prompt([{ type: 'text', text }], 'queue', operationId).then(result => {
+      if (!result.ok) throw new Error(promptErrorMessage(result.error))
+      setDraft('')
+      setOperation(undefined)
+    }).catch((cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : '发送失败，可以直接重试')
+    }).finally(() => { setSubmitting(false) })
+  }
+
+  return (
+    <section className="prompt-composer" data-testid="prompt-composer">
+      <div className="prompt-heading">
+        <div><span>发送到 Harness</span><h2>排队消息</h2></div>
+        {queued.length > 0 && <span><Clock3 aria-hidden="true" size={15} />{queued.length} 条等待中</span>}
+      </div>
+      {queued.length > 0 && (
+        <ol className="prompt-queue" aria-label="等待执行的消息">
+          {queued.map(item => <li key={item.id}>{item.preview || '无文字预览'}</li>)}
+        </ol>
+      )}
+      {!allowPrompt ? (
+        <div className="prompt-unavailable"><ShieldCheck aria-hidden="true" size={18} /><span>此设备只有查看权限，请在电脑端授予“完整控制”</span></div>
+      ) : !ordinary ? (
+        <div className="prompt-unavailable"><ShieldCheck aria-hidden="true" size={18} /><span>子 Agent Session 暂不支持从 Companion 继续</span></div>
+      ) : snapshot.removed ? (
+        <div className="prompt-unavailable"><CircleAlert aria-hidden="true" size={18} /><span>这个 Session 已移除，不能继续发送</span></div>
+      ) : (
+        <form className="prompt-form" onSubmit={submit}>
+          <textarea
+            aria-label="排队消息"
+            placeholder="给 Agent 添加下一项任务"
+            rows={3}
+            value={draft}
+            disabled={!connected || submitting}
+            onChange={event => {
+              setDraft(event.target.value)
+              setOperation(undefined)
+              setError(undefined)
+            }}
+          />
+          <div className="prompt-actions">
+            <span>{connected ? '消息会进入当前 Session 队列' : '正在重新连接 Harness'}</span>
+            <button className="button primary" type="submit" disabled={!connected || submitting || text === ''}>
+              {submitting
+                ? <><LoaderCircle className="spin" aria-hidden="true" size={18} />等待确认</>
+                : <><Send aria-hidden="true" size={18} />排队发送</>}
+            </button>
+          </div>
+          {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{error}</p>}
+        </form>
+      )}
+    </section>
+  )
+}
+
+function SessionConversation({ session, connected, allowInteractions, allowPrompt }: {
   session: SessionFace
   connected: boolean
   allowInteractions: boolean
+  allowPrompt: boolean
 }) {
   const snapshot = useSyncExternalStore(
     listener => session.subscribe(listener),
@@ -261,14 +361,17 @@ function SessionConversation({ session, connected, allowInteractions }: {
     return <div className="empty-state"><LoaderCircle className="spin" aria-hidden="true" size={28} /><strong>正在读取 Session</strong></div>
   }
   return (
-    <>
+    <div className="session-conversation">
+      {snapshot.pending.length > 0 && (
+        <div className="session-pending" data-testid="session-pending">
+          {allowInteractions
+            ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
+            : <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>}
+        </div>
+      )}
       <ConversationHistory session={session} snapshot={snapshot} />
-      {allowInteractions
-        ? snapshot.pending.map(wait => <PendingPanel key={wait.key} wait={wait} connected={connected} />)
-        : snapshot.pending.length > 0 && (
-          <div className="readonly-notice"><ShieldCheck aria-hidden="true" size={18} /><span>此设备仅可查看，待处理事项请在电脑端完成</span></div>
-        )}
-    </>
+      <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} />
+    </div>
   )
 }
 
@@ -283,6 +386,7 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
   const decoded = decodeURIComponent(rawId)
   const id = list.ids.find(candidate => candidate === decoded)
   const host = useHost(connection)
+  useSyncExternalStore(trust.subscribe, trust.getSnapshot)
 
   useEffect(() => {
     if (id !== undefined) sessions.open(id)
@@ -318,7 +422,13 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
         <span><small>工作区</small>{workspaceLabel(summary.cwd)}</span>
         <span><small>连接</small>{host === undefined ? '只读' : '已同步'}</span>
       </div>
-      <SessionConversation session={binding.session} connected={host !== undefined} allowInteractions={trust.canAnswerInteractions()} />
+      <SessionConversation
+        key={id}
+        session={binding.session}
+        connected={host !== undefined}
+        allowInteractions={trust.canAnswerInteractions()}
+        allowPrompt={trust.canPrompt()}
+      />
     </div>
   )
 }

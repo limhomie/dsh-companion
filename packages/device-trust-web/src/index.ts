@@ -5,11 +5,13 @@ import {
   approveResponseSchema,
   claimResponseSchema,
   createResponseSchema,
+  currentDeviceResponseSchema,
   devicePairingErrorSchema,
   devicesResponseSchema,
   pendingResponseSchema,
   pollResponseSchema,
   revokeResponseSchema,
+  accessResponseSchema,
   type ClaimPairingResponse,
   type CreatePairingResponse,
   type PendingPairingResponse,
@@ -28,6 +30,9 @@ interface ResponseParser<T> {
 }
 
 type FetchRequest = (input: string, init: RequestInit) => Promise<Response>
+
+/** Browser authority established before the Companion runtime starts. */
+export type CompanionTrustState = 'local' | 'paired' | 'unpaired'
 
 /** Browser device-trust failure separated from Harness Connection failures. */
 export class DeviceTrustClientError extends Error {
@@ -76,6 +81,14 @@ export class DeviceTrustHttpClient {
 
   async devices(): Promise<readonly TrustedDeviceResponse[]> {
     return (await this.post(DEVICE_PAIRING_PATHS.devices, {}, devicesResponseSchema)).devices
+  }
+
+  async currentDevice(): Promise<Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'>> {
+    return (await this.post(DEVICE_PAIRING_PATHS.current, {}, currentDeviceResponseSchema)).device
+  }
+
+  async updateAccess(deviceId: string, access: TrustedDeviceResponse['access']): Promise<void> {
+    await this.post(DEVICE_PAIRING_PATHS.access, { deviceId, access }, accessResponseSchema)
   }
 
   async revoke(deviceId: string): Promise<void> {
@@ -153,19 +166,80 @@ export class CompanionDeviceTrustService extends Service {
   readonly client = new DeviceTrustHttpClient()
   readonly fixture = new URLSearchParams(window.location.search).has('fixture')
   readonly isLocal: boolean
+  private currentDevice: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined
+  private readonly listeners = new Set<() => void>()
 
   constructor(ctx: Context) {
     super(ctx, 'companionDeviceTrust')
     this.isLocal = (ctx.get('connection') as ConnectionHandle).isLoopback
   }
 
-  /** Local pages retain full interaction UI; paired PWA devices are read-only. */
+  /** Local pages and owner devices may answer interactions. */
   canAnswerInteractions(): boolean {
-    return this.isLocal
+    return this.isLocal || this.currentDevice?.access === 'owner'
+  }
+
+  /** Local pages and owner devices may submit prompts. */
+  canPrompt(): boolean {
+    return this.isLocal || this.currentDevice?.access === 'owner'
+  }
+
+  /**
+   * Classify the browser authority after service initialization.
+   * @returns `local` for loopback, `paired` for a valid device Cookie, or `unpaired` for an explicit authentication rejection.
+   */
+  getTrustState(): CompanionTrustState {
+    if (this.isLocal) return 'local'
+    return this.currentDevice === undefined ? 'unpaired' : 'paired'
+  }
+
+  /** Current authenticated device state for reactive UI consumers. */
+  getSnapshot = (): Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined =>
+    this.currentDevice
+
+  /** Subscribe to current-device access replacement. */
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  private async refreshCurrentDevice(): Promise<void> {
+    if (this.isLocal) return
+    let next: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined
+    try {
+      next = await this.client.currentDevice()
+    } catch (error) {
+      if (!(error instanceof DeviceTrustClientError
+        && error.kind === 'http'
+        && error.status === 401
+        && error.code === 'device-unauthorized')) throw error
+      next = undefined
+    }
+    if (JSON.stringify(next) === JSON.stringify(this.currentDevice)) return
+    this.currentDevice = next
+    for (const listener of this.listeners) listener()
   }
 
   protected async* [Service.init](): AsyncGenerator<() => Promise<void>, void, void> {
-    yield async () => { await this.client.close() }
+    const connection = this.ctx.get('connection') as ConnectionHandle
+    await this.refreshCurrentDevice()
+    let refreshing = false
+    const refresh = (): void => {
+      if (this.isLocal || refreshing) return
+      refreshing = true
+      void this.refreshCurrentDevice().catch(() => {
+        // Connection owns reconnect diagnostics; retain the last authenticated principal until its next generation.
+      }).finally(() => { refreshing = false })
+    }
+    const unsubscribe = connection.hostDescription.subscribe(() => {
+      if (connection.hostDescription.getSnapshot() !== undefined) refresh()
+    })
+    refresh()
+    yield async () => {
+      unsubscribe()
+      this.listeners.clear()
+      await this.client.close()
+    }
   }
 }
 
