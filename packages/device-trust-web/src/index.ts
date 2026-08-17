@@ -11,7 +11,7 @@ import {
   pendingResponseSchema,
   pollResponseSchema,
   revokeResponseSchema,
-  scopesResponseSchema,
+  accessResponseSchema,
   type ClaimPairingResponse,
   type CreatePairingResponse,
   type PendingPairingResponse,
@@ -83,12 +83,12 @@ export class DeviceTrustHttpClient {
     return (await this.post(DEVICE_PAIRING_PATHS.devices, {}, devicesResponseSchema)).devices
   }
 
-  async currentDevice(): Promise<Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'scopes'>> {
+  async currentDevice(): Promise<Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'>> {
     return (await this.post(DEVICE_PAIRING_PATHS.current, {}, currentDeviceResponseSchema)).device
   }
 
-  async updateScopes(deviceId: string, scopes: TrustedDeviceResponse['scopes']): Promise<void> {
-    await this.post(DEVICE_PAIRING_PATHS.scopes, { deviceId, scopes }, scopesResponseSchema)
+  async updateAccess(deviceId: string, access: TrustedDeviceResponse['access']): Promise<void> {
+    await this.post(DEVICE_PAIRING_PATHS.access, { deviceId, access }, accessResponseSchema)
   }
 
   async revoke(deviceId: string): Promise<void> {
@@ -166,7 +166,7 @@ export class CompanionDeviceTrustService extends Service {
   readonly client = new DeviceTrustHttpClient()
   readonly fixture = new URLSearchParams(window.location.search).has('fixture')
   readonly isLocal: boolean
-  private currentDevice: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'scopes'> | undefined
+  private currentDevice: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined
   private readonly listeners = new Set<() => void>()
 
   constructor(ctx: Context) {
@@ -174,14 +174,14 @@ export class CompanionDeviceTrustService extends Service {
     this.isLocal = (ctx.get('connection') as ConnectionHandle).isLoopback
   }
 
-  /** Local pages retain full interaction UI; paired devices require the explicit answer grant. */
+  /** Local pages and owner devices may answer interactions. */
   canAnswerInteractions(): boolean {
-    return this.isLocal || this.currentDevice?.scopes.includes('interaction:answer') === true
+    return this.isLocal || this.currentDevice?.access === 'owner'
   }
 
-  /** Local pages may submit prompts; paired devices require the explicit queue-prompt grant. */
+  /** Local pages and owner devices may submit prompts. */
   canPrompt(): boolean {
-    return this.isLocal || this.currentDevice?.scopes.includes('session:prompt') === true
+    return this.isLocal || this.currentDevice?.access === 'owner'
   }
 
   /**
@@ -194,10 +194,10 @@ export class CompanionDeviceTrustService extends Service {
   }
 
   /** Current authenticated device state for reactive UI consumers. */
-  getSnapshot = (): Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'scopes'> | undefined =>
+  getSnapshot = (): Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined =>
     this.currentDevice
 
-  /** Subscribe to current-device grant replacement. */
+  /** Subscribe to current-device access replacement. */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
@@ -205,7 +205,7 @@ export class CompanionDeviceTrustService extends Service {
 
   private async refreshCurrentDevice(): Promise<void> {
     if (this.isLocal) return
-    let next: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'scopes'> | undefined
+    let next: Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined
     try {
       next = await this.client.currentDevice()
     } catch (error) {
@@ -228,7 +228,7 @@ export class CompanionDeviceTrustService extends Service {
       if (this.isLocal || refreshing) return
       refreshing = true
       void this.refreshCurrentDevice().catch(() => {
-        // Connection owns reconnect diagnostics; retain the last authenticated grant until its next generation.
+        // Connection owns reconnect diagnostics; retain the last authenticated principal until its next generation.
       }).finally(() => { refreshing = false })
     }
     const unsubscribe = connection.hostDescription.subscribe(() => {

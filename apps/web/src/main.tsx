@@ -28,6 +28,7 @@ async function boot(): Promise<void> {
   }
   const ctx = new Context()
   const fibers: Fiber[] = []
+  const disposers: Array<() => void> = []
 
   try {
     for (const plugin of [TypertRegistry, Connection, CompanionDeviceTrustService]) {
@@ -36,9 +37,19 @@ async function boot(): Promise<void> {
       await fiber.await()
     }
 
-    if (ctx.companionDeviceTrust.getTrustState() === 'unpaired') {
+    const trust = ctx.companionDeviceTrust
+    if (trust.getTrustState() === 'unpaired') {
       root.render(<UnpairedDevicePage />)
+    } else if (!trust.isLocal
+      && trust.getSnapshot()?.access === 'owner'
+      && window.location.pathname.startsWith('/companion')) {
+      window.location.replace('/')
+      return
     } else {
+      disposers.push(trust.subscribe(() => {
+        if (trust.getSnapshot()?.access === 'owner'
+          && window.location.pathname.startsWith('/companion')) window.location.replace('/')
+      }))
       for (const plugin of [ApiGateway, ApiRemotes, ClientRuntime]) {
         const fiber = ctx.plugin(plugin)
         fibers.push(fiber)
@@ -79,6 +90,7 @@ async function boot(): Promise<void> {
   if (import.meta.hot) {
     import.meta.hot.dispose(() => {
       root.unmount()
+      for (const dispose of disposers.splice(0).reverse()) dispose()
       void disposeFibers(fibers)
     })
   }

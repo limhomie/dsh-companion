@@ -69,7 +69,7 @@ test('handles Harness Fixture questions and approval through the real client run
   expect(pageErrors).toEqual([])
 })
 
-test('shows the exact Host and local-only trust scope', async ({ page }) => {
+test('shows the exact Host and local-only trust context', async ({ page }) => {
   await page.goto('/companion/settings?fixture')
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible()
   await expect(page.getByText('演示数据', { exact: true })).toBeVisible()
@@ -106,7 +106,7 @@ test('claims a QR offer before runtime boot and enters the fixture app after app
         device: {
           deviceId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
           label: '测试手机',
-          scopes: ['session:read'],
+          access: 'viewer',
           createdAt: '2029-01-01T00:00:00.000Z',
           expiresAt: '2030-01-01T00:00:00.000Z',
         },
@@ -146,8 +146,14 @@ test('guides an unpaired remote browser without starting the client runtime', as
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
-test('keeps remote prompt input hidden until the device receives its explicit grant', async ({ page }) => {
-  let scopes: string[] = ['session:read']
+test('keeps viewer input read-only and sends an owner to the official client', async ({ page }) => {
+  let access: 'viewer' | 'owner' = 'viewer'
+  await page.route('http://companion.test:4173/', async route => {
+    await route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><html lang="zh-CN"><body><h1>DeepSeek Harness</h1></body></html>',
+    })
+  })
   await page.route('**/api/device-pairing.current', async route => {
     await route.fulfill({
       contentType: 'application/json',
@@ -155,19 +161,20 @@ test('keeps remote prompt input hidden until the device receives its explicit gr
         device: {
           deviceId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
           label: '测试手机',
-          scopes,
+          access,
         },
       }),
     })
   })
 
   await page.goto('http://companion.test:4173/companion/sessions/fx-alpha?fixture')
-  await expect(page.getByText('此设备只有查看权限，请在电脑端授权“发送排队消息”', { exact: true })).toBeVisible()
+  await expect(page.getByText('此设备只有查看权限，请在电脑端授予“完整控制”', { exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '排队消息' })).toHaveCount(0)
 
-  scopes = ['session:read', 'session:prompt']
+  access = 'owner'
   await page.reload()
-  await expect(page.getByRole('textbox', { name: '排队消息' })).toBeVisible()
+  await expect(page).toHaveURL('http://companion.test:4173/')
+  await expect(page.getByRole('heading', { name: 'DeepSeek Harness', exact: true })).toBeVisible()
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)

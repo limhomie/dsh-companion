@@ -310,7 +310,7 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
         </ol>
       )}
       {!allowPrompt ? (
-        <div className="prompt-unavailable"><ShieldCheck aria-hidden="true" size={18} /><span>此设备只有查看权限，请在电脑端授权“发送排队消息”</span></div>
+        <div className="prompt-unavailable"><ShieldCheck aria-hidden="true" size={18} /><span>此设备只有查看权限，请在电脑端授予“完整控制”</span></div>
       ) : !ordinary ? (
         <div className="prompt-unavailable"><ShieldCheck aria-hidden="true" size={18} /><span>子 Agent Session 暂不支持从 Companion 继续</span></div>
       ) : snapshot.removed ? (

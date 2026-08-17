@@ -54,14 +54,14 @@ describe('browser device trust client', () => {
     await malformed.close()
   })
 
-  it('reads the authenticated grant and replaces a device grant through exact endpoints', async () => {
+  it('reads and replaces paired-device access through exact endpoints', async () => {
     const request = vi.fn<(input: string, init: RequestInit) => Promise<Response>>((input) => Promise.resolve(
       input === '/api/device-pairing.current'
         ? jsonResponse({
             device: {
               deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
               label: '我的手机',
-              scopes: ['session:read', 'session:prompt', 'interaction:answer'],
+              access: 'owner',
             },
           })
         : jsonResponse({ updated: true }),
@@ -70,19 +70,16 @@ describe('browser device trust client', () => {
     try {
       await expect(client.currentDevice()).resolves.toMatchObject({
         label: '我的手机',
-        scopes: ['session:read', 'session:prompt', 'interaction:answer'],
+        access: 'owner',
       })
-      await client.updateScopes(
-        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        ['session:read'],
-      )
+      await client.updateAccess('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'viewer')
       expect(request.mock.calls.map(call => call[0])).toEqual([
         '/api/device-pairing.current',
-        '/api/device-pairing.scopes',
+        '/api/device-pairing.access',
       ])
       expect(JSON.parse(String(request.mock.calls[1]?.[1].body))).toEqual({
         deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        scopes: ['session:read'],
+        access: 'viewer',
       })
     } finally {
       await client.close()
@@ -105,12 +102,12 @@ describe('browser device trust client', () => {
 })
 
 describe('Companion device trust service', () => {
-  it('derives prompt and interaction capabilities from the authenticated device grant', async () => {
+  it('derives prompt and interaction capabilities from owner access', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(jsonResponse({
       device: {
         deviceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         label: '我的手机',
-        scopes: ['session:read', 'session:prompt'],
+        access: 'owner',
       },
     }))))
     const ctx = new Context()
@@ -126,7 +123,7 @@ describe('Companion device trust service', () => {
     try {
       await fiber.await()
       expect(ctx.companionDeviceTrust.canPrompt()).toBe(true)
-      expect(ctx.companionDeviceTrust.canAnswerInteractions()).toBe(false)
+      expect(ctx.companionDeviceTrust.canAnswerInteractions()).toBe(true)
     } finally {
       await fiber.dispose()
       vi.unstubAllGlobals()

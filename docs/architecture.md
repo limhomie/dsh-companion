@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; trusted phone interaction answers and text queue input implemented
+Status: architecture baseline; viewer/owner access and official owner-client handoff implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), and [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), and [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md).
 
 ## 1. Purpose
 
@@ -34,7 +34,7 @@ Harness owns:
 - The append-only session event log and every projection derived from it.
 - Tools, approvals, questions, permission policy, jobs, goals, and workflows.
 - Workspace, filesystem, subprocess, terminal, and model-provider access.
-- Durable device records, authorization grants, and revocation.
+- Durable device records, viewer/owner access, and revocation.
 - Validation and authorization of every client operation.
 
 ### 3.2 Companion client
@@ -44,7 +44,8 @@ Companion owns:
 - Host discovery and pairing UX.
 - Pairing-page memory and connection state. The browser never receives the reusable device credential through JavaScript.
 - Local presentation caches that can be discarded and rebuilt.
-- Mobile navigation, attention inbox, conversation rendering, and input.
+- Viewer navigation, attention inbox, conversation rendering, and input.
+- Mobile layout contributions for the official Harness client.
 - Native adapters for QR scanning, notifications, camera input, deep links, and secure storage.
 - Capability-aware activation of client plugins bundled with the application.
 
@@ -86,7 +87,7 @@ Harness serves the Companion web assets and boot manifest from the same trusted 
 
 The web build may use the Host-selected browser plugin graph because the Host and web artifacts form one deployment. A production PWA still requires device authentication before non-loopback access is enabled.
 
-Before the Client Runtime starts, the web entry resolves the browser authority through the device-trust plugin. An explicit `device-unauthorized` response renders the pairing-required landing page without starting session transports; network, protocol, and unexpected authorization failures remain boot errors.
+Before the official Client Runtime starts, the Harness Web entry reads the current device. Loopback and authenticated owners start the Host-selected official plugin graph; viewers and unauthenticated browsers enter `/companion/`. Companion resolves device trust before its own Runtime, renders pairing guidance for an explicit `device-unauthorized`, and sends an owner back to the official root. Network, protocol, and unexpected authorization failures remain boot errors.
 
 ### 4.2 Native mode
 
@@ -96,7 +97,7 @@ The native app never downloads executable plugin bundles from a paired Host. Thi
 
 ### 4.3 Relay mode
 
-Both the Host and Companion establish outbound connections to a relay. Pairing establishes end-to-end session keys between the devices; the relay forwards encrypted envelopes and limited routing metadata. Relay availability does not weaken Host authorization: every decrypted request still enters the same authenticated principal and scope checks as a direct request.
+Both the Host and Companion establish outbound connections to a relay. Pairing establishes end-to-end session keys between the devices; the relay forwards encrypted envelopes and limited routing metadata. Relay availability does not weaken Host authorization: every decrypted request still enters the same authenticated principal and access check as a direct request.
 
 Relay mode is not required for the first release. Tailscale or another private network supplies reachability for the direct mode without adding a service that stores ciphertext and connection metadata.
 
@@ -118,7 +119,7 @@ packages/
   ui-inbox/                  Inbox derived from Harness SessionListState
   ui-pairing/                Pre-runtime phone pairing page
   ui-session/                Session header, question, and approval UI
-  ui-settings/               Pairing offers, device list, revocation, and current trust scope
+  ui-settings/               Pairing offers, device list, revocation, and access management
 scripts/
   verify-harness.mjs         Exact checkout and version verification
   start-harness.mjs          Patch generation and dsh web launcher
@@ -130,13 +131,10 @@ Prerelease development consumes public packages from a sibling Harness checkout 
 
 ### 5.2 Harness repository ownership
 
-The following security and protocol work belongs in `deepseek-harness`, not in Companion. Device trust, interaction-answer scope checks, authenticated actor provenance, and idempotent answer submission are implemented; the remaining items are later capabilities:
+The following security and protocol work belongs in `deepseek-harness`, not in Companion. Device trust, viewer/owner endpoint policy, authenticated actor provenance, and idempotent mutation handling remain Harness-owned; the remaining items are later capabilities:
 
 - Protocol version and capability fields in `host.describe`.
 - A publishable, wire-only client contract containing DTO types, parsers, error codes, and carrier interfaces.
-- Device trust records and the authentication service definition.
-- A paired-device authentication provider and a Connection authorization consumer.
-- Request scope checks and durable actor provenance.
 - Replay or fresh-baseline behavior for reconnecting independent clients.
 - Notification service definition and Host-side attention event consumer.
 - Optional outbound relay Connection provider.
@@ -149,7 +147,7 @@ Each new Harness capability is complete across its three roles.
 
 | Capability | Service Definition | Providers | Consumers |
 |---|---|---|---|
-| Device trust | Verify a device principal, inspect grants, revoke trust | Local digest-backed bearer provider; later native key-bound provider | Connection authentication and authorization |
+| Device trust | Verify a device principal, inspect access, revoke trust | Local digest-backed bearer provider; later native key-bound provider | Connection authentication and authorization |
 | Remote carrier | Carry authenticated request/response and downlink envelopes | Direct HTTP/WebSocket; outbound relay | API Gateway and event delivery |
 | Notifications | Deliver a secret-free attention signal to a registered device | Web Push; APNs/FCM adapter; disabled provider | Approval, question, failure, and turn-completion projector |
 
@@ -186,7 +184,7 @@ interface CompanionHostDescription {
   }>
   principal: {
     deviceId: string
-    scopes: string[]
+    access: 'viewer' | 'owner'
   }
 }
 ```
@@ -205,7 +203,7 @@ The exact type belongs to the Harness wire-contract owner. This example records 
 
 Every mutating request carries a client-generated idempotency key. Repeating a request after a lost response must either return the original result or a stable conflict; it must not submit the same prompt, approval, or command twice.
 
-The authenticated Connection supplies the device principal. Business payloads do not accept a caller-selected `deviceId` or scope list.
+The authenticated Connection supplies the device principal. Business payloads do not accept a caller-selected `deviceId` or access level.
 
 ### 7.3 Event delivery and recovery
 
@@ -226,19 +224,16 @@ Session events retain their authoritative sequence numbers. Projection updates r
 
 The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. A future native client that cannot use this Cookie requires a separate key-bound Harness Provider built from maintained cryptographic protocol libraries.
 
-### 8.2 Scopes
+### 8.2 Access levels
 
-The scope vocabulary is:
+Each paired device has one complete access level:
 
-| Scope | Allows |
+| Access | Allows |
 |---|---|
-| `session:read` | List authorized sessions and read their transcripts and projections |
-| `session:prompt` | Submit non-empty text for the next turn of an existing ordinary session |
-| `session:control` | Steer, interrupt, resume, archive, and rename sessions |
-| `interaction:answer` | Resolve approval, question, and plan-review requests |
-| `workspace:review` | Read bounded workspace metadata and diffs exposed by a review API |
+| `viewer` | Use Companion to list sessions and read transcripts and bounded live projections |
+| `owner` | Use the official Harness Web client for every browser workflow except Host-native operations classified `local-only` |
 
-Newly paired devices receive only `session:read`. Loopback administration may separately add `session:prompt` and `interaction:answer`. The former covers only non-empty text queued for an existing ordinary session, not session creation, steering, images, interruption, or queue editing; the latter covers Host-created approval, question, and plan-review requests. Settings, credentials, Host-native dialogs, arbitrary filesystem browsing, plugin authoring, and permission-policy escalation remain excluded. Every later remote operation needs an explicit scope and confirmation design before exposure.
+Newly paired devices are viewers. Only loopback administration can promote one device to owner or demote it, and promotion requires a warning that the phone can run commands, modify workspaces, control sessions and interactions, and change settings and credentials. Connection classifies each endpoint as `viewer`, `owner`, or `local-only`; unknown endpoints fail closed as local-only. Native file pickers, path openers, and document-opening methods remain local-only because their interaction appears on the computer.
 
 ### 8.3 Revocation and provenance
 
@@ -264,12 +259,12 @@ Security rules:
 - Reachability checks remain in place but never substitute for authentication.
 - Direct production connections use HTTPS/WSS, including a private-network HTTPS endpoint such as Tailscale Serve. Plain HTTP is limited to loopback development.
 - Relay payloads use end-to-end authenticated encryption with replay protection.
-- Authorization runs on every request using the Connection principal and current Host grants.
+- Authorization runs on every request using the Connection principal, current device access, and endpoint policy.
 - Push payloads carry only opaque Host, session, and attention identifiers plus a coarse category. The app fetches current state after opening.
 - A notification never contains prompts, tool arguments, diffs, paths, model output, or credentials.
 - The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Native clients later store key-bound credentials in Keychain or Keystore through a platform plugin.
 - Cached transcript data is minimized, encrypted by platform storage where retained, and safe to discard.
-- Sensitive Host configuration APIs stay unavailable to remote principals in the initial release.
+- Settings and credentials require owner access; Host-native dialogs and document-opening actions remain local-only.
 
 ## 10. State ownership
 
@@ -333,33 +328,35 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 
 ### Phase 1: authenticated read-only direct PWA (implemented)
 
-- Device-trust capability with QR pairing, scopes, and revocation.
+- Device-trust capability with QR pairing, viewer access, and revocation.
 - Direct HTTPS/WebSocket carrier over LAN or Tailscale.
 - Session lists, history, live read projections, and explicit denial of remote mutations.
-- Chinese pairing, device management, scope, and revocation surfaces.
+- Chinese pairing, device management, access, and revocation surfaces.
 
 ### Phase 1.5a: authenticated interaction answers (implemented)
 
-- Loopback grant management for `interaction:answer`; newly paired devices remain read-only.
-- Phone question, plan-review, allow-once, and reject controls derived from the current authenticated grant.
+- Owner request capability for `interaction:answer`; newly paired devices remain viewers.
+- Phone question, plan-review, allow-once, and reject controls derived from the current authenticated access.
 - Principal-isolated idempotency, durable actor provenance, commit-ordered resolved frames, and request cancellation after grant replacement or revocation.
-- Prompt, queue, steer, interrupt, settings, and filesystem operations remain denied.
+- Durable interaction provenance and cancellation remain shared by Companion and the official client.
 
 ### Phase 1.5b: authenticated session queue input (implemented)
 
-- Loopback settings independently grant `session:prompt` to one device; newly paired devices remain read-only.
+- Owner request capabilities cover Session prompt workflows; newly paired devices remain viewers.
 - Phones submit non-empty text to existing ordinary sessions and render results from the Host-authoritative queue and session events.
 - Prompt operation ids, durable actor provenance, duplicate handling in memory and after log recovery, and pre-commit cancellation after grant revocation.
-- Session creation, steering, images, interruption, queue editing, settings, and filesystem operations remain denied.
+- Companion retains the bounded queue composer for viewer compatibility tests; owners use the official client.
 
-### Phase 1.5c: authenticated remote control
+### Phase 1.5c: authenticated remote control (implemented)
 
-- Protocol version and capability negotiation for independently released clients.
-- Steering and interruption scopes with durable actor provenance.
-- Foreground resynchronization, idempotent mutations, and request cancellation.
+- Loopback settings promote one device from viewer to owner after a complete-control warning.
+- Authenticated owners enter the Host-selected official Web plugin graph before Companion Session Runtime starts.
+- Every legacy API and RPC channel declares viewer, owner, or local-only access; unclassified and Host-native actions remain local-only.
+- Access replacement and revocation terminate active requests and downlinks.
 
 ### Phase 2: installable and native surfaces
 
+- Official-client mobile layout plugin that reuses Harness Runtime, components, routes, and extension slots.
 - Service worker and bounded static-asset cache for the PWA.
 - Web Push where the deployment supports it.
 - Capacitor iOS and Android packaging.

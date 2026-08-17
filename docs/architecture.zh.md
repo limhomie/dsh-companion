@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：架构基线；可信手机 Interaction 应答与纯文本排队输入已实现
+状态：架构基线；Viewer／Owner 访问与 Owner 官方客户端转交已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)和[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)和[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)共同记录。
 
 ## 1. 目标
 
@@ -34,7 +34,7 @@ Harness 负责：
 - 只追加的 Session Event Log 及其所有派生投影。
 - Tool、审批、问题、权限策略、Job、Goal 和 Workflow。
 - Workspace、文件系统、子进程、终端和模型提供方访问。
-- 持久设备记录、授权和撤销。
+- 持久设备记录、Viewer／Owner 访问级别和撤销。
 - 每个客户端操作的校验与授权。
 
 ### 3.2 Companion 客户端
@@ -44,7 +44,8 @@ Companion 负责：
 - Host 发现与配对交互。
 - 配对页面的临时内存与连接状态。浏览器 JavaScript 永远收不到可复用设备凭据。
 - 可以丢弃并重新构建的本地展示缓存。
-- 手机导航、待处理收件箱、对话展示和输入。
+- Viewer 手机导航、待处理收件箱、对话展示和输入。
+- Harness 官方客户端的移动布局 Contribution。
 - 二维码扫描、通知、相机输入、深层链接和安全存储的原生适配器。
 - 根据 Host 能力激活随应用打包的客户端插件。
 
@@ -86,7 +87,7 @@ Harness 从与 API 相同的可信 Origin 提供 Companion Web 资源和启动�
 
 由于 Host 与 Web 产物属于同一部署，Web 构建可以继续使用 Host 选择的浏览器插件图。生产 PWA 在启用非回环地址访问前，仍然必须完成设备认证。
 
-Client Runtime 启动前，Web 入口通过设备信任插件确定浏览器权限。明确的 `device-unauthorized` 响应会显示需要配对的落地页，并且不启动 Session 传输；网络、协议和非预期授权失败仍然属于启动错误。
+官方 Client Runtime 启动前，Harness Web 入口读取当前设备。回环浏览器和认证 Owner 启动由 Host 选择的官方插件图；Viewer 与未认证浏览器进入 `/companion/`。Companion 会在自己的 Runtime 前解析设备信任，对明确的 `device-unauthorized` 显示配对说明，并把 Owner 送回官方根路径。网络、协议和非预期授权失败仍然属于启动错误。
 
 ### 4.2 原生模式
 
@@ -96,7 +97,7 @@ Capacitor 应用将外壳、Cordis 运行时、功能插件和通用 Renderer �
 
 ### 4.3 中继模式
 
-Host 与 Companion 都向中继建立出站连接。配对过程在两台设备之间建立端到端 Session Key；中继只转发加密 Envelope 和有限的路由元数据。中继可用性不会削弱 Host 授权：每个解密后的请求仍然必须经过与直连请求相同的认证主体和 scope 检查。
+Host 与 Companion 都向中继建立出站连接。配对过程在两台设备之间建立端到端 Session Key；中继只转发加密 Envelope 和有限的路由元数据。中继可用性不会削弱 Host 授权：每个解密后的请求仍然必须经过与直连请求相同的认证主体和访问级别检查。
 
 第一个版本不需要中继模式。Tailscale 或其他私有网络可以为直连提供可达性，无需增加一个保存密文和连接元数据的服务。
 
@@ -118,7 +119,7 @@ packages/
   ui-inbox/                  从 Harness SessionListState 派生的收件箱
   ui-pairing/                Runtime 启动前的手机配对页
   ui-session/                Session Header、问题与审批界面
-  ui-settings/               配对 Offer、设备列表、撤销与当前信任 Scope
+  ui-settings/               配对 Offer、设备列表、撤销与访问级别管理
 scripts/
   verify-harness.mjs         精确 checkout 与版本校验
   start-harness.mjs          生成 patch 并启动 dsh web
@@ -131,13 +132,10 @@ docs/
 
 ### 5.2 Harness 仓库职责
 
-以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任、Interaction 应答 Scope 检查、认证操作者来源和幂等应答提交已经实现，其余是后续能力：
+以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任、Viewer／Owner Endpoint 策略、认证操作者来源和幂等修改处理继续由 Harness 持有；其余是后续能力：
 
 - 在 `host.describe` 中增加协议版本和能力字段。
 - 提供一个可发布、只包含线协议的客户端契约，其中包含 DTO 类型、Parser、错误码和载体接口。
-- 设备信任记录和认证 Service Definition。
-- 已配对设备认证 Provider 与 Connection 授权 Consumer。
-- 请求 scope 检查和持久操作者来源。
 - 独立客户端重连所需的事件重放或新基线机制。
 - 通知 Service Definition 和 Host 端待处理事件 Consumer。
 - 可选的出站中继 Connection Provider。
@@ -150,7 +148,7 @@ Companion 必须消费这些契约，不能复制 Host 请求 Schema 并形成�
 
 | 能力 | Service Definition | Provider | Consumer |
 |---|---|---|---|
-| 设备信任 | 验证设备主体、查看授权、撤销信任 | 本地摘要支持的 Bearer Provider；后续原生密钥绑定 Provider | Connection 认证与授权 |
+| 设备信任 | 验证设备主体、查看访问级别、撤销信任 | 本地摘要支持的 Bearer Provider；后续原生密钥绑定 Provider | Connection 认证与授权 |
 | 远程载体 | 传输经过认证的请求、响应和下行 Envelope | HTTP/WebSocket 直连；出站中继 | API Gateway 与事件传递 |
 | 通知 | 向已注册设备发送不含敏感信息的待处理信号 | Web Push；APNs/FCM 适配器；禁用 Provider | 审批、问题、失败和 Turn 完成事件投影器 |
 
@@ -187,7 +185,7 @@ interface CompanionHostDescription {
   }>
   principal: {
     deviceId: string
-    scopes: string[]
+    access: 'viewer' | 'owner'
   }
 }
 ```
@@ -206,7 +204,7 @@ interface CompanionHostDescription {
 
 每个修改状态的请求都携带客户端生成的幂等键。响应丢失后重复请求时，Host 必须返回原始结果或稳定冲突，不能重复提交同一条 Prompt、审批或 Command。
 
-认证后的 Connection 提供设备主体。业务 Payload 不接受由调用方自行指定的 `deviceId` 或 scope 列表。
+认证后的 Connection 提供设备主体。业务 Payload 不接受由调用方自行指定的 `deviceId` 或访问级别。
 
 ### 7.3 事件传递与恢复
 
@@ -227,19 +225,16 @@ Session Event 保留其权威序号。Projection 更新继续采用较高序号�
 
 同源 PWA 使用标准 HTTPS Cookie 与 WebSocket 行为。未来无法使用该 Cookie 的原生客户端需要独立的密钥绑定 Harness Provider，并采用持续维护的密码协议库。
 
-### 8.2 Scope
+### 8.2 访问级别
 
-Scope 词汇如下：
+每台已配对设备只有一个完整访问级别：
 
-| Scope | 允许的操作 |
+| 访问级别 | 允许的操作 |
 |---|---|
-| `session:read` | 列出已授权 Session，并读取 Transcript 和 Projection |
-| `session:prompt` | 向已有普通 Session 提交非空纯文本下一轮输入 |
-| `session:control` | 向 Session 追加指令、中断、继续、归档和重命名 |
-| `interaction:answer` | 处理审批、问题和计划审阅请求 |
-| `workspace:review` | 读取 Review API 暴露的有界 Workspace 元数据与 Diff |
+| `viewer` | 使用 Companion 列出 Session，并读取 Transcript 与有界实时 Projection |
+| `owner` | 使用 Harness 官方 Web 客户端完成除 `local-only` Host 原生操作以外的浏览器工作流 |
 
-新配对设备只获得 `session:read`。回环管理操作可以独立添加 `session:prompt` 与 `interaction:answer`。前者只允许已有普通 Session 的非空纯文本 Queue Input，不包含新建 Session、中途指令、图片、停止或队列编辑；后者只覆盖 Host 创建的审批、问题和计划审阅请求。Settings、Credential、Host 原生对话框、任意文件系统浏览、插件编写和权限策略升级仍不开放。任何后续远程操作都必须先完成显式 Scope 与确认交互设计。
+新配对设备是 Viewer。只有回环管理操作可以把单台设备提升为 Owner 或降级，提升前必须警告手机可以运行命令、修改 Workspace、控制 Session 与 Interaction，并更改 Settings 和 Credential。Connection 把每个 Endpoint 分类为 `viewer`、`owner` 或 `local-only`；未知 Endpoint 按本机专用安全失败。原生文件选择器、路径打开和配置文档打开方法保持本机专用，因为它们的交互会显示在电脑上。
 
 ### 8.3 撤销与来源记录
 
@@ -265,12 +260,12 @@ Harness 拥有可信设备列表。本地操作员可以立即撤销设备；与
 - 保留网络可达性检查，但绝不以此代替认证。
 - 生产直连使用 HTTPS/WSS，包括 Tailscale Serve 等私有网络 HTTPS 端点。普通 HTTP 仅限回环地址开发环境。
 - 中继 Payload 使用带重放保护的端到端认证加密。
-- 每个请求都使用 Connection 主体和 Host 当前授权执行权限检查。
+- 每个请求都使用 Connection 主体、设备当前访问级别和 Endpoint 策略执行权限检查。
 - Push Payload 只携带不透明的 Host、Session 和待处理事项标识，以及粗粒度类别。应用打开后重新获取当前状态。
 - 通知绝不包含 Prompt、Tool 参数、Diff、路径、模型输出或 Credential。
 - PWA 接收应用 JavaScript 无法读取的 HttpOnly Bearer Cookie。原生客户端随后通过平台插件把密钥绑定凭据存入 Keychain 或 Keystore。
 - Transcript 缓存应尽量减少；需要保留时使用平台存储加密，并且可以安全丢弃。
-- 初始版本不向远程主体开放敏感 Host 配置 API。
+- Settings 与 Credential 需要 Owner 访问；Host 原生对话框和配置文档打开操作保持本机专用。
 
 ## 10. 状态所有权
 
@@ -334,33 +329,35 @@ Session 页面包含：
 
 ### 阶段 1：经过认证的只读直连 PWA（已实现）
 
-- 包含二维码配对、scope 和撤销的设备信任能力。
+- 包含二维码配对、Viewer 访问和撤销的设备信任能力。
 - 通过局域网或 Tailscale 使用 HTTPS/WebSocket 直连。
 - Session 列表、历史、实时只读投影，以及对远程修改的显式拒绝。
-- 中文配对、设备管理、Scope 与撤销界面。
+- 中文配对、设备管理、访问级别与撤销界面。
 
 ### 阶段 1.5a：经过认证的 Interaction 应答（已实现）
 
-- 由回环页面管理 `interaction:answer` 授权；新配对设备保持只读。
-- 手机端的问题、计划审阅、允许一次和拒绝控件由当前认证授权派生。
+- Owner 请求能力开放 `interaction:answer`；新配对设备保持 Viewer。
+- 手机端的问题、计划审阅、允许一次和拒绝控件由当前认证访问级别派生。
 - 按主体隔离的幂等处理、持久操作者来源、按提交顺序发布的 resolved Frame，以及授权替换或撤销后的请求取消。
-- Prompt、排队、中途指令、中断、Settings 与文件系统操作仍保持拒绝。
+- Companion 与官方客户端共享持久 Interaction 来源记录和取消语义。
 
 ### 阶段 1.5b：经过认证的 Session 排队输入（已实现）
 
-- 回环设置为单台设备独立授予 `session:prompt`，新配对设备仍然只读。
+- Owner 请求能力覆盖 Session Prompt 工作流；新配对设备保持 Viewer。
 - 手机向已有普通 Session 提交非空纯文本 Queue Input，并从 Host 权威 Queue 和 Session Event 显示结果。
 - Prompt Operation id、持久 Actor 来源、进程内与日志恢复后的重复提交处理，以及授权撤销前的提交检查。
-- 新建 Session、中途指令、图片、停止、队列编辑、Settings 与文件系统操作仍保持拒绝。
+- Companion 为 Viewer 兼容测试保留有界 Queue Composer；Owner 使用官方客户端。
 
-### 阶段 1.5c：经过认证的远程控制
+### 阶段 1.5c：经过认证的远程控制（已实现）
 
-- 面向独立发布客户端的协议版本与能力协商。
-- 带持久 Actor 来源的中途指令和打断 Scope。
-- 前台重新同步、幂等修改与请求取消。
+- 回环设置在显示完整控制警告后，把单台设备从 Viewer 提升为 Owner。
+- 认证 Owner 在 Companion Session Runtime 启动前进入由 Host 选择的官方 Web 插件图。
+- 每个旧 API 和 RPC 通道声明 Viewer、Owner 或本机专用；未分类与 Host 原生操作保持本机专用。
+- 访问级别替换和撤销会终止活动请求与 Downlink。
 
 ### 阶段 2：可安装与原生界面
 
+- 复用 Harness Runtime、组件、Route 与 Extension Slot 的官方客户端移动布局插件。
 - PWA Service Worker 和有界静态资源缓存。
 - 部署环境支持时启用 Web Push。
 - 使用 Capacitor 打包 iOS 与 Android。

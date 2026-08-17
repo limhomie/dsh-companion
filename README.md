@@ -2,9 +2,9 @@
 
 English | [中文](README.zh.md)
 
-DSH Companion is a mobile-first companion surface for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Harness serves it from `/companion/` on the same origin. The computer's loopback page retains its interactive controls; an approved phone can connect through private Tailscale HTTPS and read real sessions with the fixed `session:read` scope.
+DSH Companion is a mobile-first companion surface for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Harness serves it from `/companion/` on the same origin. The computer's loopback page retains local administration; an approved phone connects through private Tailscale HTTPS as a read-only viewer or an explicitly promoted owner.
 
-The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies private-network reachability, while Harness owns one-time pairing, the HttpOnly device credential, authorization, and revocation. The phone cannot submit prompts, answer interactions, run commands, browse files, or change Host settings in this phase.
+The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies private-network reachability, while Harness owns one-time pairing, the HttpOnly device credential, authorization, and revocation. Viewers use the bounded read-only Companion UI. Owners start the official Harness Web client and receive its remote browser capabilities; native dialogs and document-opening operations remain local-only.
 
 ## Implemented
 
@@ -15,11 +15,12 @@ The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies 
 - Composes Inbox, Session, and Settings as independent Cordis UI plugins.
 - Runs a Chinese pre-runtime pairing page that keeps its claim secret only in page memory, receives the credential through an HttpOnly Cookie, and then starts the standard Harness Client Runtime.
 - Lets the local Settings page create a QR offer, compare and approve a six-digit code, list paired devices, and revoke one after explicit confirmation.
-- Hides question and approval controls on a paired remote device; Harness independently rejects every remote mutation and unknown API target.
+- Gives every newly paired device viewer access and lets the loopback Settings page explicitly promote it to owner after a complete-control warning.
+- Starts the official Harness Web client for authenticated owners; viewers remain in Companion, and unknown or Host-native API targets fail closed as local-only.
 - Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
 - Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
-See the [architecture](docs/architecture.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [read-only Conversation decision](.agents/notes/implemented/feature/2026-08-15-read-only-conversation-history.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
+See the [architecture](docs/architecture.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [official owner-client decision](.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
 
 ## Setup
 
@@ -31,7 +32,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `9615d6ef5bc01a007a31dcf0790261f0cc259711`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
+Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `c2ea2b202d2d51d3b7e5d0184c61702d00f4a221`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
 Prepare Harness once:
 
@@ -89,4 +90,4 @@ pnpm run test:web
 
 ## Next stage
 
-The next stage first implements authenticated [mobile question and approval handling](.agents/notes/proposed/feature/2026-08-16-trusted-interaction-answering.md): the computer grants `interaction:answer` to one device, with durable actor provenance, idempotency, multi-device races, and revocation ordering. Prompts, queues, steering, interruption, installable PWA support, background notifications, Capacitor packaging with key-bound credentials, and an optional end-to-end encrypted relay follow that work.
+The next stage adapts the official client through a mobile layout plugin, adds an installable PWA asset cache, and packages the same feature graph in a thin Capacitor Android shell. Native QR scanning, notifications, deep links, and key-bound credentials follow through platform plugins; Harness execution and model credentials remain on the computer.
