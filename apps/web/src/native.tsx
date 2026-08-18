@@ -8,6 +8,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Smartphone,
+  Trash2,
 } from 'lucide-react'
 import type { ClaimPairingResponse } from '@deepseek-ai/dsh-device-trust-connection'
 import { DeviceTrustClientError } from '@dsh-companion/device-trust-web'
@@ -45,8 +46,11 @@ export function NativeShellPage({
   const [pairingUrl, setPairingUrl] = useState('')
   const [claim, setClaim] = useState<ClaimPairingResponse>()
   const [error, setError] = useState<string>()
+  const [hasSavedConnection, setHasSavedConnection] = useState(false)
+  const [confirmingReset, setConfirmingReset] = useState(false)
 
   const connect = async (): Promise<void> => {
+    setError(undefined)
     setPhase('connecting')
     const device = await client.authenticate()
     transferred.current = true
@@ -61,6 +65,7 @@ export function NativeShellPage({
         setPhase('unpaired')
         return
       }
+      setHasSavedConnection(true)
       try {
         await connect()
       } catch (cause) {
@@ -89,7 +94,10 @@ export function NativeShellPage({
       try {
         const result = await client.finishPairing(claim.claimId, claim.claimSecret)
         if (!active) return
-        if (result.status === 'approved') await connect()
+        if (result.status === 'approved') {
+          setHasSavedConnection(true)
+          await connect()
+        }
         if (result.status === 'rejected') {
           setError('电脑端没有批准这次配对')
           setPhase('failed')
@@ -125,9 +133,32 @@ export function NativeShellPage({
   }
 
   const reset = async (): Promise<void> => {
-    await client.reset()
+    setConfirmingReset(false)
+    try {
+      await client.reset()
+      setHasSavedConnection(false)
+      setClaim(undefined)
+      setPairingUrl('')
+      setError(undefined)
+      setPhase('unpaired')
+    } catch (cause) {
+      setError(nativeError(cause))
+      setPhase('failed')
+    }
+  }
+
+  const retryConnection = async (): Promise<void> => {
+    setConfirmingReset(false)
+    try {
+      await connect()
+    } catch (cause) {
+      setError(nativeError(cause))
+      setPhase('failed')
+    }
+  }
+
+  const returnToPairing = (): void => {
     setClaim(undefined)
-    setPairingUrl('')
     setError(undefined)
     setPhase('unpaired')
   }
@@ -181,9 +212,33 @@ export function NativeShellPage({
             <span className="pairing-leading failed"><CircleAlert aria-hidden="true" size={24} /></span>
             <p className="eyebrow error">Android 连接失败</p>
             <h1>{error ?? '无法连接 Harness'}</h1>
-            <button className="button primary pairing-submit" type="button" onClick={() => { void reset() }}>
-              <RotateCcw aria-hidden="true" size={18} />重新配对
-            </button>
+            {hasSavedConnection ? (
+              <div className="native-recovery-actions">
+                <p className="pairing-status">原配对仍保存在这台手机上</p>
+                <button className="button primary pairing-submit" type="button" onClick={() => { void retryConnection() }}>
+                  <RotateCcw aria-hidden="true" size={18} />重试连接
+                </button>
+                {confirmingReset ? (
+                  <div className="native-reset-confirm" role="alert">
+                    <p>删除后必须在电脑上重新创建并批准配对。</p>
+                    <div className="native-reset-buttons">
+                      <button className="button secondary" type="button" onClick={() => { setConfirmingReset(false) }}>取消</button>
+                      <button className="button danger" type="button" onClick={() => { void reset() }}>
+                        <Trash2 aria-hidden="true" size={17} />确认删除
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="button native-reset-button" type="button" onClick={() => { setConfirmingReset(true) }}>
+                    <Trash2 aria-hidden="true" size={17} />删除配对
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button className="button primary pairing-submit" type="button" onClick={returnToPairing}>
+                <RotateCcw aria-hidden="true" size={18} />返回配对
+              </button>
+            )}
           </>
         )}
         {phase === 'waiting'

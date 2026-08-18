@@ -180,6 +180,48 @@ input:focus-visible {
   padding-top: clamp(72px, 18vh, 156px);
 }
 
+.native-recovery-actions {
+  display: grid;
+  max-width: 360px;
+  gap: 10px;
+  margin: 22px auto 0;
+}
+
+.native-recovery-actions .pairing-submit {
+  margin-top: 0;
+}
+
+.native-reset-button {
+  min-height: 38px;
+  color: var(--red);
+  background: transparent;
+}
+
+.native-reset-confirm {
+  padding: 13px;
+  border: 1px solid #efc6c3;
+  border-radius: 6px;
+  color: var(--red);
+  background: var(--red-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.native-reset-confirm p {
+  margin: 0 0 11px;
+}
+
+.native-reset-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.button.danger {
+  color: #fff;
+  background: var(--red);
+}
+
 .pwa-install-page .pairing-panel {
   padding-top: clamp(54px, 14vh, 118px);
 }
