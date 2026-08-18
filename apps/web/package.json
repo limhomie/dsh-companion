@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:native": "vite build --mode native",
     "dev": "vite",
+    "generate:assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/core": "8.5.0",
     "@deepseek-ai/cordis": "link:../../../deepseek-harness/vendor/cordis",
     "@deepseek-ai/dsh-api-gateway": "link:../../../deepseek-harness/packages/api/gateway",
     "@deepseek-ai/dsh-api-remotes": "link:../../../deepseek-harness/packages/api/remotes",
@@ -22,7 +25,12 @@
     "@dsh-companion/ui-session": "workspace:*",
     "@dsh-companion/ui-settings": "workspace:*",
     "@dsh-companion/ui-shell": "workspace:*",
+    "lucide-react": "^1.31.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vite-pwa/assets-generator": "^1.0.2",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }

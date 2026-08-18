@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; viewer/owner access and official owner-client handoff implemented
+Status: architecture baseline; viewer/owner access, installable PWA, and Android packaging implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), and [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), and [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md).
 
 ## 1. Purpose
 
@@ -89,9 +89,13 @@ The web build may use the Host-selected browser plugin graph because the Host an
 
 Before the official Client Runtime starts, the Harness Web entry reads the current device. Loopback and authenticated owners start the Host-selected official plugin graph; viewers and unauthenticated browsers enter `/companion/`. Companion resolves device trust before its own Runtime, renders pairing guidance for an explicit `device-unauthorized`, and sends an owner back to the official root. Network, protocol, and unexpected authorization failures remain boot errors.
 
+The PWA installation entry is `/companion/?install=1`. It captures the browser installation request before device trust and the Client Runtime, reads no authentication state, and sends no Harness requests, so a promoted owner remains on the Companion manifest until installation completes instead of moving to the root Harness manifest. The entry bypasses the static cache to confirm that the Tailscale origin is online. Accepting Chrome's prompt starts an installation transaction but does not prove that Android exposed a usable launcher entry. The browser tab reports completion only when its self-related installed web app query succeeds or a standalone launch recorded after that transaction proves that the new entry can open. The installed `start_url` remains `/companion/`; the manifest scope includes the root path so an owner can then enter the official client in the standalone window.
+
 ### 4.2 Native mode
 
-The Capacitor application packages the shell, Cordis runtime, feature plugins, and generic renderers in the signed app. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer.
+The Capacitor 8 Android project packages the same React/Vite entry with relative asset paths. Until a key-bound native device-trust Provider exists, native boot stops before Harness Connection startup and presents an explicit unavailable state. It does not send Host requests or read or store browser device Cookies, Harness credentials, model credentials, or device credentials.
+
+After native authentication exists, the signed application packages the shell, Cordis runtime, feature plugins, generic renderers, and platform Providers. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer.
 
 The native app never downloads executable plugin bundles from a paired Host. This keeps the release review surface finite and prevents a compromised Host from replacing application code.
 
@@ -111,6 +115,7 @@ The current repository layout is:
 
 ```text
 apps/
+  android/                   Capacitor 8 config, generated Android source, and native asset composition
   web/                       Harness Client plugin graph and responsive web entry
 packages/
   host-web/                  Loopback-restricted /companion static Host plugin
@@ -121,10 +126,12 @@ packages/
   ui-session/                Session header, question, and approval UI
   ui-settings/               Pairing offers, device list, revocation, and access management
 scripts/
+  build-android-debug.mjs    Cross-platform Gradle Debug APK launcher
   verify-harness.mjs         Exact checkout and version verification
   start-harness.mjs          Patch generation and dsh web launcher
 docs/
   architecture.md
+  mobile.zh.md
 ```
 
 Prerelease development consumes public packages from a sibling Harness checkout and pins an exact version and commit. Companion no longer owns the Stage 0 connection DTOs, Fixture provider, or Session runtime; keyless tests use the official Harness Fixture.
@@ -354,12 +361,19 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Every legacy API and RPC channel declares viewer, owner, or local-only access; unclassified and Host-native actions remain local-only.
 - Access replacement and revocation terminate active requests and downlinks.
 
-### Phase 2: installable and native surfaces
+### Phase 2a: installable PWA and Android packaging (implemented)
+
+- Manifest, home-screen icons, and a Companion-scoped Service Worker with a bounded static precache.
+- One Vite graph with Host-served and relative-path native build targets.
+- Capacitor 8 Android source, branded adaptive icons and splash screens, sync, Android Studio, and Debug APK commands.
+- Fail-closed native entry that starts no Harness transport before key-bound native authentication exists.
+- Mobile browser coverage for install metadata, cache scope, current workflows, and the native entry at 390x844.
+
+### Phase 2b: native connection and platform features
 
 - Official-client mobile layout plugin that reuses Harness Runtime, components, routes, and extension slots.
-- Service worker and bounded static-asset cache for the PWA.
 - Web Push where the deployment supports it.
-- Capacitor iOS and Android packaging.
+- Capacitor iOS packaging.
 - Keychain/Keystore, QR scanner, native push, camera attachment, deep links, and share target.
 - Signed static client plugin catalog and compatibility fallback.
 

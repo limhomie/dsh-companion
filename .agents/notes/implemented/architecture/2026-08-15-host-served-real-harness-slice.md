@@ -42,7 +42,7 @@ Session 页面从公开 `ConversationSnapshot` 展示只读历史，并从 `snap
 
 ### Host 插件
 
-`packages/host-web` 注入现有 `webServer`，用 effect 注册 `/companion` named prefix，并复用 `@deepseek-ai/dsh-host-frontend-static` 的静态文件、MIME、路径包含和 SPA fallback 规则。`GET` 与 `HEAD` 可读取页面和资源，其他方法返回 405；插件卸载时 route disposer 随 effect 撤销。
+`packages/host-web` 注入现有 `webServer`，用 effect 注册 `/companion` named prefix，并复用 `@deepseek-ai/dsh-host-frontend-static` 的静态文件、MIME、协商压缩、路径包含和 SPA fallback 规则。`GET` 与 `HEAD` 可读取页面和资源，其他方法返回 405；插件卸载时 route disposer 随 effect 撤销。
 
 插件在读取构建产物前要求 `ctx.webServer.host === '127.0.0.1'`，没有配置可以跳过该安全不变量。静态路由不读取 Session；业务请求继续经过 Harness 原有 `/api`、Origin、Fetch-Metadata 和 WebSocket 检查。
 

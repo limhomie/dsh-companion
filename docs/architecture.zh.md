@@ -2,9 +2,9 @@
 
 [English](architecture.md) | 中文
 
-状态：架构基线；Viewer／Owner 访问与 Owner 官方客户端转交已实现
+状态：架构基线；Viewer／Owner 访问、可安装 PWA 与 Android 打包已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)和[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)和[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)共同记录。
 
 ## 1. 目标
 
@@ -89,9 +89,13 @@ Harness 从与 API 相同的可信 Origin 提供 Companion Web 资源和启动�
 
 官方 Client Runtime 启动前，Harness Web 入口读取当前设备。回环浏览器和认证 Owner 启动由 Host 选择的官方插件图；Viewer 与未认证浏览器进入 `/companion/`。Companion 会在自己的 Runtime 前解析设备信任，对明确的 `device-unauthorized` 显示配对说明，并把 Owner 送回官方根路径。网络、协议和非预期授权失败仍然属于启动错误。
 
+PWA 安装入口是 `/companion/?install=1`。该入口在设备信任和 Client Runtime 之前捕获浏览器安装请求，不读取认证状态或发送 Harness 请求，因此已提升的 Owner 不会在浏览器完成安装前跳到使用 Harness Manifest 的根页面。入口先绕过静态缓存确认 Tailscale Origin 在线。接受 Chrome 安装对话框只会开始一次安装事务，不能证明 Android 已经提供可用的桌面入口；只有 Manifest 自身关联查询返回已安装 Web App，或该事务之后的独立显示模式启动证明新入口能够打开，浏览器标签页才报告完成。安装后的 `start_url` 仍是 `/companion/`；Manifest 作用域覆盖根路径，Owner 随后可以在独立窗口中进入官方客户端。
+
 ### 4.2 原生模式
 
-Capacitor 应用将外壳、Cordis 运行时、功能插件和通用 Renderer 打包进签名应用。Host 在就绪握手中返回带版本的能力清单。客户端激活兼容的本地插件，并为已经识别但缺少专用 Renderer 的数据使用通用展示。
+Capacitor 8 Android 工程使用相对资源路径打包同一个 React/Vite Entry。在密钥绑定的原生设备信任 Provider 完成前，原生启动在 Harness Connection 之前停止并显示明确的不可用状态。它不发送 Host 请求，也不读取或保存浏览器设备 Cookie、Harness Credential、模型 Credential 或设备 Credential。
+
+原生认证完成后，签名应用打包外壳、Cordis 运行时、功能插件、通用 Renderer 与平台 Provider。Host 在就绪握手中返回带版本的能力清单。客户端激活兼容的本地插件，并为已经识别但缺少专用 Renderer 的数据使用通用展示。
 
 原生应用不从已配对 Host 下载可执行插件包。这样既能限定应用审核范围，也能防止遭入侵的 Host 替换应用代码。
 
@@ -111,6 +115,7 @@ Host 与 Companion 都向中继建立出站连接。配对过程在两台设备�
 
 ```text
 apps/
+  android/                   Capacitor 8 配置、生成的 Android 源码和原生资源组合
   web/                       Harness Client 插件图和响应式 Web 入口
 packages/
   host-web/                  回环限制的 /companion 静态资源 Host 插件
@@ -121,11 +126,13 @@ packages/
   ui-session/                Session Header、问题与审批界面
   ui-settings/               配对 Offer、设备列表、撤销与访问级别管理
 scripts/
+  build-android-debug.mjs    跨平台 Gradle Debug APK 启动脚本
   verify-harness.mjs         精确 checkout 与版本校验
   start-harness.mjs          生成 patch 并启动 dsh web
 docs/
   architecture.md
   architecture.zh.md
+  mobile.zh.md
 ```
 
 预发布开发通过相邻的 Harness checkout 消费公开 Package，并锁定精确版本与提交。Companion 不再拥有 Stage 0 的 Connection DTO、Fixture Provider 或 Session Runtime；无密钥测试使用 Harness 官方 Fixture。
@@ -355,12 +362,19 @@ Session 页面包含：
 - 每个旧 API 和 RPC 通道声明 Viewer、Owner 或本机专用；未分类与 Host 原生操作保持本机专用。
 - 访问级别替换和撤销会终止活动请求与 Downlink。
 
-### 阶段 2：可安装与原生界面
+### 阶段 2a：可安装 PWA 与 Android 打包（已实现）
+
+- Manifest、主屏幕图标，以及只包含有界静态预缓存的 Companion 作用域 Service Worker。
+- 同一 Vite 插件图提供 Host 同源与相对路径 Native 两个构建目标。
+- Capacitor 8 Android 源码、品牌自适应图标与启动图，以及同步、Android Studio 和 Debug APK 命令。
+- 密钥绑定原生认证完成前不启动任何 Harness Transport 的安全失败入口。
+- 浏览器手机视口覆盖安装元数据、缓存范围、现有工作流，以及 390x844 的原生入口。
+
+### 阶段 2b：原生连接与平台能力
 
 - 复用 Harness Runtime、组件、Route 与 Extension Slot 的官方客户端移动布局插件。
-- PWA Service Worker 和有界静态资源缓存。
 - 部署环境支持时启用 Web Push。
-- 使用 Capacitor 打包 iOS 与 Android。
+- 使用 Capacitor 打包 iOS。
 - Keychain/Keystore、二维码扫描器、原生推送、相机附件、深层链接和系统分享入口。
 - 签名静态客户端插件目录和兼容性降级。
 

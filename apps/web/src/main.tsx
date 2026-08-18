@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Capacitor } from '@capacitor/core'
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import * as TypertRegistry from '@deepseek-ai/dsh-typert-registry/client'
@@ -15,15 +16,26 @@ import { PairingPage, UnpairedDevicePage } from '@dsh-companion/ui-pairing'
 import * as SessionUi from '@dsh-companion/ui-session'
 import * as SettingsUi from '@dsh-companion/ui-settings'
 import UiRegistryService, { AppShell } from '@dsh-companion/ui-shell'
+import { NativeShellPage } from './native.tsx'
+import { PwaInstallPage, recordStandaloneLaunch } from './pwa-install.tsx'
 import './styles.css'
 
 async function boot(): Promise<void> {
+  recordStandaloneLaunch()
   const element = document.getElementById('root')
   if (element === null) throw new Error('missing #root element')
   const root = createRoot(element)
+  if (Capacitor.isNativePlatform()) {
+    root.render(<NativeShellPage />)
+    return
+  }
   const pairingOfferId = new URLSearchParams(window.location.search).get('pair')
   if (pairingOfferId !== null) {
     root.render(<PairingPage offerId={pairingOfferId} />)
+    return
+  }
+  if (new URLSearchParams(window.location.search).has('install')) {
+    root.render(<PwaInstallPage />)
     return
   }
   const ctx = new Context()

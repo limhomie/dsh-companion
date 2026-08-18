@@ -1,5 +1,139 @@
 import { expect, test } from '@playwright/test'
 
+test('publishes an installable manifest and a Companion-scoped static cache', async ({ page, request }) => {
+  const response = await request.get('/companion/manifest.webmanifest')
+  expect(response.ok()).toBe(true)
+  const manifest = await response.json() as {
+    id: string
+    start_url: string
+    scope: string
+    display: string
+    related_applications: Array<{ platform: string; url: string; id: string }>
+    icons: Array<{ src: string; sizes: string; purpose?: string }>
+  }
+  expect(manifest).toMatchObject({
+    id: '/companion/',
+    start_url: '/companion/',
+    scope: '/',
+    display: 'standalone',
+    related_applications: [
+      { platform: 'webapp', url: '/companion/manifest.webmanifest', id: '/companion/' },
+    ],
+  })
+  expect(manifest.icons).toEqual(expect.arrayContaining([
+    expect.objectContaining({ sizes: '192x192' }),
+    expect.objectContaining({ sizes: '512x512' }),
+    expect.objectContaining({ sizes: '512x512', purpose: 'maskable' }),
+  ]))
+  const iconResponse = await request.get('/companion/pwa-512x512.png')
+  expect(iconResponse.ok()).toBe(true)
+  expect(iconResponse.headers()['content-type']).toBe('image/png')
+
+  await page.goto('/companion/?fixture')
+  const cacheUrls = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    if (!registration.scope.endsWith('/companion/')) throw new Error(`unexpected service worker scope ${registration.scope}`)
+    const urls: string[] = []
+    for (const name of await caches.keys()) {
+      for (const entry of await caches.open(name).then(cache => cache.keys())) urls.push(entry.url)
+    }
+    return urls
+  })
+  expect(cacheUrls.length).toBeGreaterThan(0)
+  expect(cacheUrls.every(url => new URL(url).pathname.startsWith('/companion/'))).toBe(true)
+  expect(cacheUrls.some(url => new URL(url).pathname.startsWith('/api/'))).toBe(false)
+})
+
+test('offers installation before device trust or owner redirection starts', async ({ page }) => {
+  const harnessRequests: string[] = []
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+      configurable: true,
+      value: async () => [],
+    })
+  })
+  page.on('request', request => {
+    if (request.url().includes('/api/') || request.url().includes('/cordis')) harnessRequests.push(request.url())
+  })
+
+  await page.goto('/companion/?install=1')
+  await expect(page.getByRole('heading', { name: '安装 DSH Companion', exact: true })).toBeVisible()
+
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & { installPromptCalls?: number }
+    state.installPromptCalls = 0
+    const event = new Event('beforeinstallprompt', { cancelable: true })
+    Object.defineProperties(event, {
+      prompt: {
+        value: async () => { state.installPromptCalls = (state.installPromptCalls ?? 0) + 1 },
+      },
+      userChoice: {
+        value: Promise.resolve({ outcome: 'accepted', platform: 'web' }),
+      },
+    })
+    window.dispatchEvent(event)
+  })
+
+  await page.getByRole('button', { name: '安装应用', exact: true }).click()
+  await expect(page.getByText('Chrome 已接收安装请求；请从手机桌面打开一次 DSH Companion 完成确认', { exact: true })).toBeVisible()
+  await page.evaluate(() => { window.dispatchEvent(new Event('appinstalled')) })
+  await expect(page.getByRole('button', { name: '重新检测', exact: true })).toBeEnabled()
+  await expect(page.getByText('已检测到 DSH Companion，可以从桌面打开', { exact: true })).toHaveCount(0)
+  await page.evaluate(() => {
+    window.localStorage.setItem('dsh-companion:pwa-standalone-launched-at', Date.now().toString())
+  })
+  await expect(page.getByText('已检测到 DSH Companion，可以从桌面打开', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { installPromptCalls?: number }).installPromptCalls)).toBe(1)
+  expect(harnessRequests).toEqual([])
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('records a standalone launch as installation confirmation', async ({ page }) => {
+  await page.addInitScript(() => {
+    const matchMedia = window.matchMedia.bind(window)
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: (query: string) => {
+        const result = matchMedia(query)
+        if (query === '(display-mode: standalone)') Object.defineProperty(result, 'matches', { value: true })
+        return result
+      },
+    })
+  })
+
+  await page.goto('/companion/?install=1')
+  await expect(page.getByText('已检测到 DSH Companion，可以从桌面打开', { exact: true })).toBeVisible()
+  const launchedAt = await page.evaluate(() => window.localStorage.getItem('dsh-companion:pwa-standalone-launched-at'))
+  expect(Number(launchedAt)).toBeGreaterThan(0)
+})
+
+test('refuses installation while the Tailscale origin is available only from cache', async ({ page }) => {
+  await page.route('**/manifest.webmanifest?online=*', route => route.abort('internetdisconnected'))
+  await page.goto('/companion/?install=1')
+
+  await expect(page.getByText('当前页面来自离线缓存，请先连接 Tailscale', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重新检查', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '安装应用', exact: true })).toHaveCount(0)
+})
+
+test('keeps a retry action after Chrome dismisses the install prompt', async ({ page }) => {
+  await page.goto('/companion/?install=1')
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt', { cancelable: true })
+    Object.defineProperties(event, {
+      prompt: { value: async () => undefined },
+      userChoice: { value: Promise.resolve({ outcome: 'dismissed', platform: 'web' }) },
+    })
+    window.dispatchEvent(event)
+  })
+
+  await page.getByRole('button', { name: '安装应用', exact: true }).click()
+  await expect(page.getByText('Chrome 已关闭本次安装窗口', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重新尝试', exact: true })).toBeEnabled()
+})
+
 test('handles Harness Fixture questions and approval through the real client runtime', async ({ page }) => {
   const pageErrors: Error[] = []
   page.on('pageerror', error => { pageErrors.push(error) })

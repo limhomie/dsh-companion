@@ -176,6 +176,22 @@ input:focus-visible {
   margin: 22px auto 0;
 }
 
+.native-shell-page .pairing-panel {
+  padding-top: clamp(72px, 18vh, 156px);
+}
+
+.pwa-install-page .pairing-panel {
+  padding-top: clamp(54px, 14vh, 118px);
+}
+
+.pwa-install-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 360px;
+}
+
 .desktop-sidebar {
   display: none;
 }
