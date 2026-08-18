@@ -1,0 +1,14 @@
+{
+  "name": "@dsh-companion/native-connection",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@capacitor/core": "8.5.0",
+    "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
+    "@deepseek-ai/dsh-device-trust": "link:../../../deepseek-harness/packages/identity/device-trust",
+    "@deepseek-ai/dsh-device-trust-connection": "link:../../../deepseek-harness/packages/identity/device-trust-connection",
+    "@dsh-companion/device-trust-web": "workspace:*"
+  }
+}

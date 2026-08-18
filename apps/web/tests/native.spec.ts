@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('keeps the Android shell outside Harness until native device trust exists', async ({ page }) => {
+test('shows native key-bound pairing before Android has a saved connection', async ({ page }) => {
   const harnessRequests: string[] = []
   page.on('request', request => {
     if (request.url().includes('/api/') || request.url().includes('/cordis')) harnessRequests.push(request.url())
@@ -10,11 +10,28 @@ test('keeps the Android shell outside Harness until native device trust exists',
       configurable: true,
       value: {},
     })
+    Object.defineProperty(globalThis, 'Capacitor', {
+      configurable: true,
+      writable: true,
+      value: {
+        Plugins: {},
+        PluginHeaders: [{
+          name: 'DshDeviceIdentity',
+          methods: ['getIdentity', 'sign', 'loadConnection', 'saveConnection', 'reset']
+            .map(name => ({ name, rtype: 'promise' })),
+        }],
+        nativePromise: async (_pluginName: string, methodName: string) => {
+          if (methodName === 'loadConnection') return { configured: false }
+          throw new Error(`unexpected native method ${methodName}`)
+        },
+      },
+    })
   })
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '安全连接尚未启用', exact: true })).toBeVisible()
-  await expect(page.getByText('此版本不会连接 Harness，也不会读取或保存 Harness、模型或设备凭据。当前请使用电脑提供的 PWA 完成配对。', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '连接这台电脑', exact: true })).toBeVisible()
+  await expect(page.getByLabel('配对链接')).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始配对', exact: true })).toBeDisabled()
   expect(harnessRequests).toEqual([])
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

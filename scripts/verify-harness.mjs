@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const EXPECTED_COMMIT = '2a8d995b4b43a4f308143a40ed1fcf9e633aac47'
+const EXPECTED_COMMIT = 'f652a3263943a26ebfa3f0945230c1f40884637d'
 const EXPECTED_VERSION = '0.1.0-rc.5'
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const harnessRoot = resolve(projectRoot, '../deepseek-harness')

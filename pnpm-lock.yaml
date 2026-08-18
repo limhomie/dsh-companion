@@ -93,6 +93,9 @@ importers:
       '@dsh-companion/device-trust-web':
         specifier: workspace:*
         version: link:../../packages/device-trust-web
+      '@dsh-companion/native-connection':
+        specifier: workspace:*
+        version: link:../../packages/native-connection
       '@dsh-companion/ui-inbox':
         specifier: workspace:*
         version: link:../../packages/ui-inbox
@@ -163,6 +166,24 @@ importers:
       '@deepseek-ai/dsh-host-webserver':
         specifier: link:../../../deepseek-harness/packages/host/webserver
         version: link:../../../deepseek-harness/packages/host/webserver
+
+  packages/native-connection:
+    dependencies:
+      '@capacitor/core':
+        specifier: 8.5.0
+        version: 8.5.0
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
+      '@deepseek-ai/dsh-device-trust':
+        specifier: link:../../../deepseek-harness/packages/identity/device-trust
+        version: link:../../../deepseek-harness/packages/identity/device-trust
+      '@deepseek-ai/dsh-device-trust-connection':
+        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
+        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
+      '@dsh-companion/device-trust-web':
+        specifier: workspace:*
+        version: link:../device-trust-web
 
   packages/ui-inbox:
     dependencies:
@@ -4692,7 +4713,7 @@ snapshots:
       debug: 4.4.3
       signal-exit: 3.0.7
       tree-kill: 1.2.2
-      tslib: 2.6.2
+      tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
 
@@ -4710,7 +4731,7 @@ snapshots:
   '@ionic/utils-stream@3.1.6':
     dependencies:
       debug: 4.4.3
-      tslib: 2.6.2
+      tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
 
@@ -4755,7 +4776,7 @@ snapshots:
       slice-ansi: 4.0.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
-      tslib: 2.6.2
+      tslib: 2.8.1
       untildify: 4.0.0
       wrap-ansi: 7.0.0
     transitivePeerDependencies:

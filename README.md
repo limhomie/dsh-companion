@@ -34,7 +34,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `2a8d995b4b43a4f308143a40ed1fcf9e633aac47`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
+Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `f652a3263943a26ebfa3f0945230c1f40884637d`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
 Prepare Harness once:
 

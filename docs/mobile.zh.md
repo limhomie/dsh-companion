@@ -1,6 +1,6 @@
 # 手机安装、连接与 Android 构建
 
-本文是 DSH Companion 手机端的操作入口。浏览器 PWA 已经可以安装、连接和配对；Capacitor Android 工程已经可以同步与构建，但在原生密钥绑定设备身份完成前，APK 不连接 Harness。
+本文是 DSH Companion 手机端的操作入口。浏览器 PWA 与 Capacitor Android APK 都可以连接和配对；两者复用同一套 React/Vite UI，但使用相互独立的浏览器 Cookie 与 Android Keystore 设备身份。
 
 ## 1. 安装并连接 PWA
 
@@ -70,15 +70,21 @@ pnpm android:apk
 
 输出位于 `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`。Debug APK 只用于本机安装与打包验证，不能作为 GitHub Release 或长期升级通道。
 
-## 4. 当前 APK 行为
+## 4. 安装、配对并使用 APK
 
-APK 启动同一个 Vite Entry，但在创建 Harness Connection 之前识别 Capacitor 原生平台并停在“安全连接尚未启用”页面。它不读取浏览器 Cookie，不向 Host 发送 API/WebSocket 请求，也不保存 Harness Credential、模型 Credential 或设备 Credential。
+电脑连着手机且已开启 USB 调试与“USB 安装”后，在电脑 PowerShell 运行：
 
-因此当前真实手机工作流仍使用 PWA。不要通过以下方式让 APK 临时连接 Host：
+```powershell
+adb install -r "D:\dsh-companion\apps\android\android\app\build\outputs\apk\debug\app-debug.apk"
+```
 
-- 不把 Capacitor `server.url` 指向 Tailscale Origin；该字段只用于 Live Reload，不用于生产。
-- 不放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie。
-- 不把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
+该命令在电脑上执行，不在手机上输入。Android 显示安装确认时必须在手机上允许；出现 `INSTALL_FAILED_USER_RESTRICTED` 通常表示手机没有开启 USB 安装，或安装确认被取消。
+
+首次启动 APK 时，在电脑的 Companion 设置页选择“配对新手机”并复制二维码对应的完整 HTTPS 链接。当前 APK 先用“配对链接”输入框粘贴该链接，相机扫码 Provider 尚未接入。点击“开始配对”后，手机显示六位码；电脑待批准列表出现相同设备名称和号码后才批准。新设备默认是 Viewer；需要发送 Prompt 或处理 Interaction 时，在电脑设置页把该设备提升为“完整控制” Owner。
+
+批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion 收件箱、Session 与设置页。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启会使短会话失效，但不会删除设备记录；App 重新连接时会再次签名。撤销设备或在 App 中重置连接后必须重新配对。
+
+APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私钥交给 JavaScript。不要把 Capacitor `server.url` 指向 Tailscale Origin，不要放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie，也不要把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
 
 ## 5. 原生扩展点
 
@@ -87,16 +93,16 @@ APK 启动同一个 Vite Entry，但在创建 Harness Connection 之前识别 Ca
 | 能力 | Provider 责任 | 安全要求 |
 |---|---|---|
 | APK 下载 | GitHub Releases 提供签名 APK 与 SHA-256 摘要 | Host 不下发可执行插件或 APK |
-| 二维码扫描 | Capacitor 扫码 Provider 只解析并校验配对 Offer | Claim Secret 不进入日志或持久存储 |
+| 二维码扫描 | 当前粘贴完整配对链接；后续 Capacitor 扫码 Provider 只解析并校验配对 Offer | Claim Secret 不进入日志或持久存储 |
 | 通知 | 原生 Push Provider 接收无敏感内容的待处理信号 | Payload 不含 Prompt、Session、路径或 Token |
 | 后台重连 | App/Network 生命周期 Provider 驱动一个 Connection lifecycle controller | 恢复时重新认证并从 Host 基线重建，不在后台执行 Agent |
-| 安全凭据 | 原生设备信任 Provider 使用 Android Keystore 后面的不可导出密钥 | 只保存独立、可撤销、密钥绑定的设备身份，不保存 Harness 或模型密钥 |
+| 安全凭据 | 已实现的原生设备信任 Provider 使用 Android Keystore 中不可导出的 P-256 密钥 | Harness 只保存公钥；App 只持久化非敏感连接信息，不保存 Harness 或模型密钥 |
 
 功能插件不能直接导入 Capacitor API；平台 Provider 先完成连接、通知、扫描或存储能力，再由 Consumer 使用该接口。新的网络、二维码、原生桥接和持久数据都必须在入口做运行时校验。
 
 ## 6. GitHub Actions 与 Releases 路径
 
-仓库当前没有 Release、Android Workflow 或签名 Secret 约定，而且 Companion 精确锁定的 Harness 提交 `2a8d995b4b43a4f308143a40ed1fcf9e633aac47` 只存在本地。GitHub Runner 无法检出这个提交，因此当前不加入必然失败的 Workflow。
+仓库当前没有 Release、Android Workflow 或签名 Secret 约定，而且 Companion 精确锁定的 Harness 提交 `f652a3263943a26ebfa3f0945230c1f40884637d` 只存在本地。GitHub Runner 无法检出这个提交，因此当前不加入必然失败的 Workflow。
 
 满足以下条件后启用发布：
 
@@ -125,4 +131,4 @@ pnpm android:sync
 pnpm android:apk
 ```
 
-`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、现有配对与 Session 流程、原生入口不发送 Harness 请求和页面无横向溢出。
+`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、现有配对与 Session 流程、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连与设置页权限显示。

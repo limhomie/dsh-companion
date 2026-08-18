@@ -22,7 +22,7 @@ import type {
   TrustedDeviceResponse,
 } from '@deepseek-ai/dsh-device-trust-connection'
 import {
-  CompanionDeviceTrustService,
+  type CompanionDeviceTrust,
   DeviceTrustClientError,
 } from '@dsh-companion/device-trust-web'
 
@@ -46,7 +46,7 @@ function timeLabel(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 }
 
-function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }) {
+function PairingAdministration({ trust }: { trust: CompanionDeviceTrust }) {
   const [offer, setOffer] = useState<CreatePairingResponse>()
   const [qrDataUrl, setQrDataUrl] = useState<string>()
   const [claims, setClaims] = useState<PendingPairingResponse['claims']>([])
@@ -258,7 +258,7 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrustService }
   )
 }
 
-function SettingsPage({ connection, trust }: { connection: ConnectionHandle; trust: CompanionDeviceTrustService }) {
+function SettingsPage({ connection, trust }: { connection: ConnectionHandle; trust: CompanionDeviceTrust }) {
   const host = useSyncExternalStore<HostDescription | undefined>(
     connection.hostDescription.subscribe,
     connection.hostDescription.getSnapshot,

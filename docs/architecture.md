@@ -93,7 +93,7 @@ The PWA installation entry is `/companion/?install=1`. It captures the browser i
 
 ### 4.2 Native mode
 
-The Capacitor 8 Android project packages the same React/Vite entry with relative asset paths. Until a key-bound native device-trust Provider exists, native boot stops before Harness Connection startup and presents an explicit unavailable state. It does not send Host requests or read or store browser device Cookies, Harness credentials, model credentials, or device credentials.
+The Capacitor 8 Android project packages the same React/Vite entry with relative asset paths. Native boot first uses a non-exportable Android Keystore P-256 key to claim a pairing offer or authenticate a saved device, then supplies the shared runtime with a native Connection carrier. The signed challenge yields only a short memory session; each WebSocket uses a separate one-time handshake ticket. The app never reads the browser device Cookie or stores Harness credentials, model credentials, native sessions, or WebSocket tickets.
 
 After native authentication exists, the signed application packages the shell, Cordis runtime, feature plugins, generic renderers, and platform Providers. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer.
 
@@ -154,7 +154,7 @@ Each new Harness capability is complete across its three roles.
 
 | Capability | Service Definition | Providers | Consumers |
 |---|---|---|---|
-| Device trust | Verify a device principal, inspect access, revoke trust | Local digest-backed bearer provider; later native key-bound provider | Connection authentication and authorization |
+| Device trust | Verify a device principal, inspect access, revoke trust | Local provider with browser credential digests and native P-256 public keys | Connection authentication and authorization |
 | Remote carrier | Carry authenticated request/response and downlink envelopes | Direct HTTP/WebSocket; outbound relay | API Gateway and event delivery |
 | Notifications | Deliver a secret-free attention signal to a registered device | Web Push; APNs/FCM adapter; disabled provider | Approval, question, failure, and turn-completion projector |
 
@@ -226,10 +226,10 @@ Session events retain their authoritative sequence numbers. Projection updates r
 2. The page shows a QR code containing the Host origin and random offer id. It contains no reusable device credential.
 3. The phone submits a device label and receives a claim secret plus a six-digit verification code. The claim secret stays only in page memory.
 4. The computer lists the pending claim and approves it after the operator compares the code.
-5. The phone polls with its claim secret. Approval sets a host-only Secure, HttpOnly, SameSite=Strict Cookie and reloads the normal Companion runtime.
+5. The phone polls with its claim secret. A browser claim sets a host-only Secure, HttpOnly, SameSite=Strict Cookie. A native claim stores the submitted P-256 public key and returns no durable bearer.
 6. Offer reuse, expiry, a mismatched claim secret, an invalid credential, and revocation fail closed. A lost poll response can be retried during the offer lifetime.
 
-The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. A future native client that cannot use this Cookie requires a separate key-bound Harness Provider built from maintained cryptographic protocol libraries.
+The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. The native client signs a versioned single-use Challenge with Android Keystore, keeps the resulting short session in memory, and obtains a one-time `Sec-WebSocket-Protocol` Ticket for each WebSocket. Harness persists only the native public key and current access.
 
 ### 8.2 Access levels
 
@@ -269,7 +269,7 @@ Security rules:
 - Authorization runs on every request using the Connection principal, current device access, and endpoint policy.
 - Push payloads carry only opaque Host, session, and attention identifiers plus a coarse category. The app fetches current state after opening.
 - A notification never contains prompts, tool arguments, diffs, paths, model output, or credentials.
-- The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Native clients later store key-bound credentials in Keychain or Keystore through a platform plugin.
+- The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Android stores a non-exportable P-256 private key in Keystore; derived sessions remain memory-only.
 - Cached transcript data is minimized, encrypted by platform storage where retained, and safe to discard.
 - Settings and credentials require owner access; Host-native dialogs and document-opening actions remain local-only.
 
@@ -278,7 +278,7 @@ Security rules:
 Harness is authoritative for all product state. Companion may persist:
 
 - Paired Host descriptors and public identity fingerprints.
-- Native device identity in secure storage when the native key-bound Provider exists. The current PWA stores no authentication secret through application code.
+- Native device identity in platform secure storage. The Android app persists only its Keystore key and non-secret Host origin, device id, and label; the PWA stores no authentication secret through application code.
 - Non-secret UI preferences.
 - Bounded encrypted presentation cache and last acknowledged resume cursor.
 - Pending local drafts and unsent operations with idempotency keys.
@@ -366,15 +366,16 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Manifest, home-screen icons, and a Companion-scoped Service Worker with a bounded static precache.
 - One Vite graph with Host-served and relative-path native build targets.
 - Capacitor 8 Android source, branded adaptive icons and splash screens, sync, Android Studio, and Debug APK commands.
-- Fail-closed native entry that starts no Harness transport before key-bound native authentication exists.
+- Fail-closed native entry that starts no Harness transport before key-bound native authentication succeeds.
 - Mobile browser coverage for install metadata, cache scope, current workflows, and the native entry at 390x844.
 
-### Phase 2b: native connection and platform features
+### Phase 2b: native connection and platform features (partially implemented)
 
 - Official-client mobile layout plugin that reuses Harness Runtime, components, routes, and extension slots.
 - Web Push where the deployment supports it.
 - Capacitor iOS packaging.
-- Keychain/Keystore, QR scanner, native push, camera attachment, deep links, and share target.
+- Android Keystore identity, signed challenge authentication, native HTTP, one-time WebSocket tickets, and shared Companion Runtime are implemented.
+- QR scanner, native push, camera attachment, deep links, share target, and iOS Keychain remain pending.
 - Signed static client plugin catalog and compatibility fallback.
 
 ### Phase 3: optional relay

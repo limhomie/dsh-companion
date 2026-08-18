@@ -28,7 +28,7 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
 import type { RouteProps } from '@dsh-companion/ui-shell'
-import type { CompanionDeviceTrustService } from '@dsh-companion/device-trust-web'
+import type { CompanionDeviceTrust } from '@dsh-companion/device-trust-web'
 import { ConversationHistory } from './conversation.tsx'
 
 export const name = 'companion-ui-session'
@@ -378,7 +378,7 @@ function SessionConversation({ session, connected, allowInteractions, allowPromp
 function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
   sessions: ISessions
   connection: ConnectionHandle
-  trust: CompanionDeviceTrustService
+  trust: CompanionDeviceTrust
   rawId: string
   navigate(path: string): void
 }) {
@@ -436,7 +436,7 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
 function SessionsRoute({ sessions, connection, trust, path, navigate }: {
   sessions: ISessions
   connection: ConnectionHandle
-  trust: CompanionDeviceTrustService
+  trust: CompanionDeviceTrust
 } & RouteProps) {
   const detail = useMemo(() => /^\/sessions\/([^/]+)$/.exec(path)?.[1], [path])
   return detail === undefined

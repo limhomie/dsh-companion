@@ -93,7 +93,7 @@ PWA 安装入口是 `/companion/?install=1`。该入口在设备信任和 Client
 
 ### 4.2 原生模式
 
-Capacitor 8 Android 工程使用相对资源路径打包同一个 React/Vite Entry。在密钥绑定的原生设备信任 Provider 完成前，原生启动在 Harness Connection 之前停止并显示明确的不可用状态。它不发送 Host 请求，也不读取或保存浏览器设备 Cookie、Harness Credential、模型 Credential 或设备 Credential。
+Capacitor 8 Android 工程使用相对资源路径打包同一个 React/Vite Entry。原生启动先使用 Android Keystore 中不可导出的 P-256 密钥认领配对 Offer 或认证已保存设备，再为共享 Runtime 提供原生 Connection 载体。签名 Challenge 只换取内存短会话；每条 WebSocket 使用单独的一次性握手 Ticket。App 不读取浏览器设备 Cookie，也不保存 Harness Credential、模型 Credential、原生会话或 WebSocket Ticket。
 
 原生认证完成后，签名应用打包外壳、Cordis 运行时、功能插件、通用 Renderer 与平台 Provider。Host 在就绪握手中返回带版本的能力清单。客户端激活兼容的本地插件，并为已经识别但缺少专用 Renderer 的数据使用通用展示。
 
@@ -155,7 +155,7 @@ Companion 必须消费这些契约，不能复制 Host 请求 Schema 并形成�
 
 | 能力 | Service Definition | Provider | Consumer |
 |---|---|---|---|
-| 设备信任 | 验证设备主体、查看访问级别、撤销信任 | 本地摘要支持的 Bearer Provider；后续原生密钥绑定 Provider | Connection 认证与授权 |
+| 设备信任 | 验证设备主体、查看访问级别、撤销信任 | 同时保存浏览器凭据摘要与原生 P-256 公钥的本地 Provider | Connection 认证与授权 |
 | 远程载体 | 传输经过认证的请求、响应和下行 Envelope | HTTP/WebSocket 直连；出站中继 | API Gateway 与事件传递 |
 | 通知 | 向已注册设备发送不含敏感信息的待处理信号 | Web Push；APNs/FCM 适配器；禁用 Provider | 审批、问题、失败和 Turn 完成事件投影器 |
 
@@ -227,10 +227,10 @@ Session Event 保留其权威序号。Projection 更新继续采用较高序号�
 2. 页面显示包含 Host Origin 与随机 Offer id 的二维码，其中没有可复用设备凭据。
 3. 手机提交设备名称，得到 Claim Secret 与六位验证码。Claim Secret 只保留在页面内存中。
 4. 电脑列出待处理 Claim，操作员核对验证码后批准。
-5. 手机携带 Claim Secret 轮询；批准会设置 Host-only、Secure、HttpOnly、SameSite=Strict Cookie，并重新加载正常 Companion Runtime。
+5. 手机携带 Claim Secret 轮询；浏览器 Claim 设置 Host-only、Secure、HttpOnly、SameSite=Strict Cookie，原生 Claim 保存提交的 P-256 公钥且不返回持久 Bearer。
 6. Offer 重用、过期、Claim Secret 不匹配、凭据无效和撤销均安全失败。Poll 响应丢失时可在 Offer 有效期内重试。
 
-同源 PWA 使用标准 HTTPS Cookie 与 WebSocket 行为。未来无法使用该 Cookie 的原生客户端需要独立的密钥绑定 Harness Provider，并采用持续维护的密码协议库。
+同源 PWA 使用标准 HTTPS Cookie 与 WebSocket 行为。原生客户端用 Android Keystore 签署带版本的单次 Challenge，把短会话保留在内存，并为每条 WebSocket 领取一次性 `Sec-WebSocket-Protocol` Ticket。Harness 只持久化原生公钥与当前访问级别。
 
 ### 8.2 访问级别
 
@@ -270,7 +270,7 @@ Harness 拥有可信设备列表。本地操作员可以立即撤销设备；与
 - 每个请求都使用 Connection 主体、设备当前访问级别和 Endpoint 策略执行权限检查。
 - Push Payload 只携带不透明的 Host、Session 和待处理事项标识，以及粗粒度类别。应用打开后重新获取当前状态。
 - 通知绝不包含 Prompt、Tool 参数、Diff、路径、模型输出或 Credential。
-- PWA 接收应用 JavaScript 无法读取的 HttpOnly Bearer Cookie。原生客户端随后通过平台插件把密钥绑定凭据存入 Keychain 或 Keystore。
+- PWA 接收应用 JavaScript 无法读取的 HttpOnly Bearer Cookie。Android 在 Keystore 保存不可导出的 P-256 私钥，派生会话只存在于内存。
 - Transcript 缓存应尽量减少；需要保留时使用平台存储加密，并且可以安全丢弃。
 - Settings 与 Credential 需要 Owner 访问；Host 原生对话框和配置文档打开操作保持本机专用。
 
@@ -279,7 +279,7 @@ Harness 拥有可信设备列表。本地操作员可以立即撤销设备；与
 Harness 是所有产品状态的权威来源。Companion 可以持久保存：
 
 - 已配对 Host 描述和公开身份指纹。
-- 原生密钥绑定 Provider 完成后使用安全存储保存原生设备身份。当前 PWA 不通过应用代码保存认证 Secret。
+- 原生设备身份保存在平台安全存储。Android App 只持久化 Keystore 密钥，以及非敏感的 Host Origin、设备 id 与名称；当前 PWA 不通过应用代码保存认证 Secret。
 - 不含 Secret 的 UI 偏好。
 - 有界的加密展示缓存和最后确认的恢复游标。
 - 带幂等键的本地草稿和未发送操作。
@@ -367,15 +367,16 @@ Session 页面包含：
 - Manifest、主屏幕图标，以及只包含有界静态预缓存的 Companion 作用域 Service Worker。
 - 同一 Vite 插件图提供 Host 同源与相对路径 Native 两个构建目标。
 - Capacitor 8 Android 源码、品牌自适应图标与启动图，以及同步、Android Studio 和 Debug APK 命令。
-- 密钥绑定原生认证完成前不启动任何 Harness Transport 的安全失败入口。
+- 密钥绑定原生认证成功前不启动任何 Harness Transport 的安全失败入口。
 - 浏览器手机视口覆盖安装元数据、缓存范围、现有工作流，以及 390x844 的原生入口。
 
-### 阶段 2b：原生连接与平台能力
+### 阶段 2b：原生连接与平台能力（部分实现）
 
 - 复用 Harness Runtime、组件、Route 与 Extension Slot 的官方客户端移动布局插件。
 - 部署环境支持时启用 Web Push。
 - 使用 Capacitor 打包 iOS。
-- Keychain/Keystore、二维码扫描器、原生推送、相机附件、深层链接和系统分享入口。
+- Android Keystore 身份、签名 Challenge 认证、原生 HTTP、一次性 WebSocket Ticket 与共享 Companion Runtime 已实现。
+- 二维码扫描器、原生推送、相机附件、深层链接、系统分享入口与 iOS Keychain 尚未实现。
 - 签名静态客户端插件目录和兼容性降级。
 
 ### 阶段 3：可选中继

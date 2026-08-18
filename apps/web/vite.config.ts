@@ -58,6 +58,7 @@ export default defineConfig(({ mode }): UserConfig => {
         { find: /^@deepseek-ai\/cordis$/, replacement: harnessSource('vendor/cordis/src/index.ts') },
         { find: /^@deepseek-ai\/dsh-typert-registry\/client$/, replacement: harnessSource('packages/typert/registry/src/client/index.ts') },
         { find: /^@deepseek-ai\/dsh-client-connection\/client$/, replacement: harnessSource('packages/client/connection/src/client/index.ts') },
+        { find: /^@deepseek-ai\/dsh-device-trust$/, replacement: harnessSource('packages/identity/device-trust/src/index.ts') },
         { find: /^@deepseek-ai\/dsh-api-gateway\/client$/, replacement: harnessSource('packages/api/gateway/src/client/index.ts') },
         { find: /^@deepseek-ai\/dsh-api-remotes\/client$/, replacement: harnessSource('packages/api/remotes/src/client/index.ts') },
         { find: /^@deepseek-ai\/dsh-client-runtime\/client$/, replacement: harnessSource('packages/client/runtime/src/client/index.ts') },

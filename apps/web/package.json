@@ -20,6 +20,7 @@
     "@deepseek-ai/dsh-typert-registry": "link:../../../deepseek-harness/packages/typert/registry",
     "@dsh-companion/conversation-projection": "workspace:*",
     "@dsh-companion/device-trust-web": "workspace:*",
+    "@dsh-companion/native-connection": "workspace:*",
     "@dsh-companion/ui-inbox": "workspace:*",
     "@dsh-companion/ui-pairing": "workspace:*",
     "@dsh-companion/ui-session": "workspace:*",
