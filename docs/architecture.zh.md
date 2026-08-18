@@ -4,7 +4,7 @@
 
 状态：架构基线；Viewer／Owner 访问、可安装 PWA 与 Android 打包已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)、[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)、[原生新建 Session 决策](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md)和[原生断线恢复决策](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)和[对话优先移动界面决策](../.agents/notes/implemented/feature/2026-08-18-conversation-first-mobile-ui.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)、[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)、[原生新建 Session 决策](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md)和[原生断线恢复决策](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md)共同记录。
 
 ## 1. 目标
 
@@ -20,7 +20,7 @@ Companion 不执行 Tool、不挂载 Workspace、不持有模型凭据，也不�
 2. 第一个产品形态是由 Host 提供的响应式 Web 应用。在为独立客户端准备远程协议期间，Host 与 Web 客户端产物一起发布。
 3. 原生应用通过轻量 Capacitor 外壳复用相同的 Web 功能包。初始计划不包含 React Native 或 Flutter 重写。
 4. 第一种传输方式是在局域网或 Tailscale 中通过认证的 HTTPS 与 WebSocket 直连。公网中继是后续可选能力。
-5. 手机端首页是待处理收件箱，而不是空白聊天输入框。
+5. 手机端首页是 Session 工作区；收件箱保留为跨 Session 待处理事项的辅助入口。
 6. 原生版本将可执行插件代码随签名应用一同打包。Host 只发送能力数据，不向原生客户端下发任意 JavaScript。
 7. 认证、授权、传输、通知和 UI 功能分别由不同插件负责。
 
@@ -292,10 +292,10 @@ Companion 不保存模型 Credential、Host Settings 文档、默认权限、完
 
 ### 11.1 主导航
 
-第一个版本包含三个顶层入口：
+第一个版本包含三个顶层入口，根路径默认进入 Session：
 
-- 收件箱：展示所有已配对 Host 中的审批、问题、计划审阅、失败和新完成 Session。
 - Session：按 Host 分组展示 Session 列表，并区分运行中、空闲、失败和需要处理状态。
+- 收件箱：展示所有已配对 Host 中的审批、问题、计划审阅、失败和新完成 Session。
 - 设置：Host 配对、设备信任、通知、外观和诊断。不提供 Harness 模型 Credential 或插件配置。
 
 ### 11.2 Session 页面
@@ -310,7 +310,7 @@ Session 页面包含：
 - 内联审批、问题和计划审阅输入区。
 - 后续加入的有界 Diff 与产出文件 Review 标签页。
 
-手机布局只使用一个主面板。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
+手机布局只使用一个主面板。Session 详情隐藏全局品牌栏和底部导航，由紧凑会话顶栏、占满剩余高度的 Conversation 和底部常驻输入区组成；返回 Session 列表后恢复三个顶层入口。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
 
 单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之前，使修改操作不依赖历史记录的内层滚动位置。
 

@@ -68,12 +68,6 @@ function phaseLabel(connected: boolean): string {
   return connected ? '已连接' : '正在连接，只读'
 }
 
-function activeTopLevelPath(path: string): string {
-  if (path.startsWith('/sessions')) return '/sessions'
-  if (path.startsWith('/settings')) return '/settings'
-  return '/inbox'
-}
-
 interface NavigationProps {
   routes: readonly RouteContribution[]
   activePath: string
@@ -131,14 +125,14 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
     window.history.pushState({}, '', nextUrl)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, [])
-  const activePath = activeTopLevelPath(path)
   const current = useMemo(() => routes.find(route => route.match(path)) ?? routes[0], [path, routes])
+  const activePath = current?.path ?? ''
   const pendingCount = sessionList.ids.filter(id => sessionList.byId[id]?.pendingInteraction !== undefined).length
   const connected = host !== undefined
 
   useEffect(() => {
-    if (window.location.pathname === '/' && routes.some(route => route.path === '/inbox')) navigate('/inbox')
-  }, [navigate, routes])
+    if (path === '/' && routes[0] !== undefined) navigate(routes[0].path)
+  }, [navigate, path, routes])
 
   return (
     <div className="app-frame">

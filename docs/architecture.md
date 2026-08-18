@@ -4,7 +4,7 @@ English | [中文](architecture.zh.md)
 
 Status: architecture baseline; viewer/owner access, installable PWA, and Android packaging implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [native new-session decision](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md), and [native offline recovery decision](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slices are recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md) and [conversation-first mobile UI decision](../.agents/notes/implemented/feature/2026-08-18-conversation-first-mobile-ui.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [native new-session decision](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md), and [native offline recovery decision](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md).
 
 ## 1. Purpose
 
@@ -20,7 +20,7 @@ The initial design makes these decisions:
 2. The first product is a Host-served responsive web application. Host and web client artifacts therefore ship together while the remote protocol is being prepared for independent clients.
 3. The native application uses the same web feature packages inside a thin Capacitor shell. A React Native or Flutter rewrite is not part of the initial plan.
 4. Direct authenticated HTTPS and WebSocket access over LAN or Tailscale is the first transport. A public relay is optional and comes later.
-5. The mobile home screen is an attention inbox, not an empty chat composer.
+5. The mobile home screen is the Sessions workspace; the inbox remains an auxiliary cross-session attention view.
 6. Native releases bundle executable plugin code with the signed application. A Host sends capability data, never arbitrary JavaScript for a native client to execute.
 7. Authentication, authorization, transport, notifications, and UI features are separate plugin responsibilities.
 
@@ -291,10 +291,10 @@ When foregrounded after suspension, the app treats its connection as lost, reaut
 
 ### 11.1 Primary navigation
 
-The first release has three top-level destinations:
+The first release has three top-level destinations and opens Sessions from the root path:
 
-- Inbox: approvals, questions, plan reviews, failures, and newly completed sessions across paired Hosts.
 - Sessions: grouped Host/session list with running, idle, failed, and needs-attention states.
+- Inbox: approvals, questions, plan reviews, failures, and newly completed sessions across paired Hosts.
 - Settings: Host pairing, device trust, notifications, appearance, and diagnostics. It does not expose Harness model credentials or plugin configuration.
 
 ### 11.2 Session screen
@@ -309,7 +309,7 @@ The session screen contains:
 - Inline approval, question, and plan-review composers.
 - A later review tab for bounded diffs and produced files.
 
-The layout uses one primary pane on phones. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
+The layout uses one primary pane on phones. Session detail hides the global brand bar and bottom navigation, leaving a compact conversation header, a transcript that fills the remaining height, and a bottom composer; returning to the Session list restores the three top-level destinations. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
 
 The single-pane Session places pending approvals, questions, and plan reviews before conversation history, so mutating actions do not depend on the history scroller's position.
 

@@ -82,9 +82,9 @@ adb install -r "D:\dsh-companion\apps\android\android\app\build\outputs\apk\debu
 
 首次启动 APK 时，在电脑的 Companion 设置页选择“配对新手机”并复制二维码对应的完整 HTTPS 链接。当前 APK 先用“配对链接”输入框粘贴该链接，相机扫码 Provider 尚未接入。点击“开始配对”后，手机显示六位码；电脑待批准列表出现相同设备名称和号码后才批准。新设备默认是 Viewer；需要发送 Prompt 或处理 Interaction 时，在电脑设置页把该设备提升为“完整控制” Owner。
 
-批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion 收件箱、Session 与设置页。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启或 Tailscale 暂时断开会使当前连接失效，但不会删除设备记录；恢复网络后点击“重试连接”会再次签名。只有电脑撤销设备，或在 App 中选择“删除配对”并二次确认后，才必须重新配对。
+批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion Session 列表；收件箱与设置保留在列表页底部导航。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启或 Tailscale 暂时断开会使当前连接失效，但不会删除设备记录；恢复网络后点击“重试连接”会再次签名。只有电脑撤销设备，或在 App 中选择“删除配对”并二次确认后，才必须重新配对。
 
-Owner 在底部打开“Session”，点击右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；输入第一条任务并点击“排队发送”即可开始模型对话，运行期间可以选择“停止生成”。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。
+Owner 可以直接打开已有 Session，或点击列表右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；该页只保留会话顶栏、对话记录和底部输入框，发送按钮与运行期间的停止按钮位于输入框右侧。返回 Session 列表后才能切换收件箱和设置。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。
 
 APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私钥交给 JavaScript。不要把 Capacitor `server.url` 指向 Tailscale Origin，不要放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie，也不要把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
 

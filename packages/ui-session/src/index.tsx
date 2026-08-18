@@ -453,34 +453,36 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
         <div className="prompt-unavailable"><CircleAlert aria-hidden="true" size={18} /><span>这个 Session 已移除，不能继续发送</span></div>
       ) : (
         <form className="prompt-form" onSubmit={submit}>
-          <textarea
-            aria-label="排队消息"
-            placeholder="给 Agent 添加下一项任务"
-            rows={3}
-            value={draft}
-            disabled={!connected || submitting}
-            onChange={event => {
-              setDraft(event.target.value)
-              setOperation(undefined)
-              setError(undefined)
-            }}
-          />
-          <div className="prompt-actions">
-            <span>{connected ? '消息会进入当前 Session 队列' : '正在重新连接 Harness'}</span>
+          <div className="prompt-input-row">
+            <textarea
+              aria-label="排队消息"
+              placeholder="给 Agent 发送消息"
+              rows={3}
+              value={draft}
+              disabled={!connected || submitting}
+              onChange={event => {
+                setDraft(event.target.value)
+                setOperation(undefined)
+                setError(undefined)
+              }}
+            />
             <div className="prompt-command-buttons">
               {snapshot.running && (
-                <button className="button secondary" type="button" disabled={!connected || stopping} onClick={stop}>
+                <button className="button secondary prompt-stop" title="停止生成" aria-label="停止生成" type="button" disabled={!connected || stopping} onClick={stop}>
                   {stopping
-                    ? <><LoaderCircle className="spin" aria-hidden="true" size={18} />正在停止</>
-                    : <><Square aria-hidden="true" size={16} />停止生成</>}
+                    ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>正在停止</span></>
+                    : <><Square aria-hidden="true" size={16} /><span>停止生成</span></>}
                 </button>
               )}
-              <button className="button primary" type="submit" disabled={!connected || submitting || text === ''}>
+              <button className="button primary prompt-send" aria-label="排队发送" title="发送消息" type="submit" disabled={!connected || submitting || text === ''}>
                 {submitting
-                  ? <><LoaderCircle className="spin" aria-hidden="true" size={18} />等待确认</>
-                  : <><Send aria-hidden="true" size={18} />排队发送</>}
+                  ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>等待确认</span></>
+                  : <><Send aria-hidden="true" size={18} /><span>排队发送</span></>}
               </button>
             </div>
+          </div>
+          <div className="prompt-actions">
+            <span>{connected ? '发送后进入当前 Session' : '正在重新连接 Harness'}</span>
           </div>
           {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{error}</p>}
           {stopError !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{stopError}</p>}
@@ -552,17 +554,20 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
 
   return (
     <div className="page page-session-detail">
-      <button className="back-button" type="button" onClick={() => { navigate('/sessions') }}>
-        <ArrowLeft aria-hidden="true" size={18} />返回 Session
-      </button>
-      <header className="session-header">
+      <header className="session-chat-header" data-testid="session-chat-header">
+        <button className="back-button" title="返回 Session" aria-label="返回 Session" type="button" onClick={() => { navigate('/sessions') }}>
+          <ArrowLeft aria-hidden="true" size={20} /><span>返回 Session</span>
+        </button>
         <div className="session-heading-copy">
-          <span className="session-context">{workspaceLabel(summary.cwd)} · {summary.agentPreset ?? '默认 Agent'}</span>
           <h1>{summary.displayTitle}</h1>
-          <p>{summaryLabel(summary)}</p>
+          <span className="session-context">
+            <span className="status-dot" data-phase={host === undefined ? 'booting' : 'connected'} />
+            {workspaceLabel(summary.cwd)} · {host?.model ?? 'Host 默认模型'}
+          </span>
         </div>
         <span className="session-status" data-status={status}><StatusIcon aria-hidden="true" size={16} />{meta.label}</span>
       </header>
+      <p className="session-summary">{summaryLabel(summary)}</p>
       <div className="session-facts" aria-label="Session 上下文">
         <span><small>模型</small>{host?.model ?? 'Host 默认'}</span>
         <span><small>工作区</small>{workspaceLabel(summary.cwd)}</span>
@@ -597,7 +602,7 @@ export function apply(ctx: Context): void {
     id: 'sessions',
     path: '/sessions',
     label: 'Session',
-    order: 20,
+    order: 10,
     icon: MessageSquare,
     match: path => path === '/sessions' || path.startsWith('/sessions/'),
     component: props => <SessionsRoute sessions={ctx.sessions} workspaces={ctx.workspaces} connection={connection} trust={ctx.companionDeviceTrust} {...props} />,

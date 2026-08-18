@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: './apps/web/tests',
   fullyParallel: true,
   reporter: 'list',
-  workers: 6,
+  // Concurrent Chrome contexts intermittently abort service-worker navigations on Windows.
+  workers: process.platform === 'win32' ? 1 : 6,
   use: {
     baseURL: 'http://127.0.0.1:4173',
     channel: 'chrome',

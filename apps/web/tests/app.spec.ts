@@ -134,10 +134,18 @@ test('keeps a retry action after Chrome dismisses the install prompt', async ({ 
   await expect(page.getByRole('button', { name: '重新尝试', exact: true })).toBeEnabled()
 })
 
+test('opens the Session workspace from the Companion root', async ({ page }) => {
+  await page.goto('/companion/?fixture')
+
+  await expect(page).toHaveURL(/\/companion\/sessions\?fixture$/)
+  await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: /主导航/ }).getByRole('button', { name: /Session/ })).toHaveAttribute('aria-current', 'page')
+})
+
 test('handles Harness Fixture questions and approval through the real client runtime', async ({ page }) => {
   const pageErrors: Error[] = []
   page.on('pageerror', error => { pageErrors.push(error) })
-  await page.goto('/companion/?fixture')
+  await page.goto('/companion/inbox?fixture')
   await expect(page.getByRole('heading', { name: '收件箱', exact: true })).toBeVisible()
   await expect(page.getByTestId('attention-pending:fx-alpha')).toBeVisible()
 
@@ -173,13 +181,15 @@ test('handles Harness Fixture questions and approval through the real client run
         composerTop: composerBounds.top,
         conversationBottom: conversationBounds.bottom,
         conversationScrollable: conversation.scrollHeight > conversation.clientHeight,
-        navigationTop: navigationBounds.top,
+        navigationHidden: getComputedStyle(navigation).display === 'none' && navigationBounds.height === 0,
+        viewportHeight: window.innerHeight,
       }
     })
     expect(mobileLayout).toBeDefined()
     expect(mobileLayout?.conversationScrollable).toBe(true)
     expect(mobileLayout?.conversationBottom).toBeLessThanOrEqual(mobileLayout?.composerTop ?? 0)
-    expect(mobileLayout?.composerBottom).toBeLessThanOrEqual(mobileLayout?.navigationTop ?? 0)
+    expect(mobileLayout?.composerBottom).toBeLessThanOrEqual((mobileLayout?.viewportHeight ?? 0) + 1)
+    expect(mobileLayout?.navigationHidden).toBe(true)
   }
   await page.getByRole('radio', { name: /均衡型/ }).check()
   await page.getByRole('radio', { name: /先写完整设计/ }).check()
@@ -194,6 +204,9 @@ test('handles Harness Fixture questions and approval through the real client run
   await page.getByRole('button', { name: '排队发送', exact: true }).click()
   await expect(page.getByText(remotePrompt, { exact: true })).toBeVisible()
 
+  if (test.info().project.name !== 'desktop') {
+    await page.getByRole('button', { name: '返回 Session', exact: true }).click()
+  }
   const navLabel = test.info().project.name === 'desktop' ? '桌面主导航' : '移动主导航'
   await page.getByRole('navigation', { name: navLabel }).getByRole('button', { name: /收件箱/ }).click()
   await expect(page.getByTestId('attention-pending:fx-alpha')).toHaveCount(0)
@@ -214,6 +227,32 @@ test('starts a Workspace session, sends its first message, and stops the running
 
   await expect(page).toHaveURL(/\/companion\/sessions\/fx-1\?fixture$/)
   await expect(page.getByRole('heading', { name: 'fixture', exact: true })).toBeVisible()
+  if (test.info().project.name !== 'desktop') {
+    await expect(page.getByTestId('session-chat-header')).toBeVisible()
+    await expect(page.getByRole('navigation', { name: '移动主导航' })).toBeHidden()
+    await expect(page.locator('.mobile-topbar')).toBeHidden()
+    const mobileLayout = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>('[data-testid="session-chat-header"]')
+      const conversation = document.querySelector<HTMLElement>('[data-testid="conversation-scroll"]')
+      const composer = document.querySelector<HTMLElement>('[data-testid="prompt-composer"]')
+      if (header === null || conversation === null || composer === null) return undefined
+      const headerBounds = header.getBoundingClientRect()
+      const conversationBounds = conversation.getBoundingClientRect()
+      const composerBounds = composer.getBoundingClientRect()
+      return {
+        headerBottom: headerBounds.bottom,
+        conversationTop: conversationBounds.top,
+        conversationBottom: conversationBounds.bottom,
+        composerTop: composerBounds.top,
+        composerBottom: composerBounds.bottom,
+        viewportHeight: window.innerHeight,
+      }
+    })
+    expect(mobileLayout).toBeDefined()
+    expect(mobileLayout?.conversationTop).toBeGreaterThanOrEqual(mobileLayout?.headerBottom ?? Number.POSITIVE_INFINITY)
+    expect(mobileLayout?.conversationBottom).toBeLessThanOrEqual(mobileLayout?.composerTop ?? 0)
+    expect(mobileLayout?.composerBottom).toBeLessThanOrEqual((mobileLayout?.viewportHeight ?? 0) + 1)
+  }
   const prompt = '从手机开始的第一条任务'
   await page.getByRole('textbox', { name: '排队消息' }).fill(prompt)
   await page.getByRole('button', { name: '排队发送', exact: true }).click()
@@ -305,8 +344,8 @@ test('claims a QR offer before runtime boot and enters the fixture app after app
 
   const waitingOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(waitingOverflow).toBeLessThanOrEqual(0)
-  await expect(page).toHaveURL(/\/companion\/\?fixture$/)
-  await expect(page.getByRole('heading', { name: '收件箱', exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/companion\/sessions\?fixture$/)
+  await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible()
 })
 
 test('guides an unpaired remote browser without starting the client runtime', async ({ page }) => {

@@ -149,7 +149,7 @@ export function apply(ctx: Context): void {
     id: 'inbox',
     path: '/inbox',
     label: '收件箱',
-    order: 10,
+    order: 20,
     icon: Inbox,
     badge: 'attention',
     match: path => path === '/' || path === '/inbox',

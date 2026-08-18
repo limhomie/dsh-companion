@@ -4,4 +4,4 @@
 
 Workspace、Session、历史、运行状态和等待队列只读取上游 Runtime Snapshot，不保存业务状态副本。创建成功后才打开 Host 返回的 Session；Prompt 草稿在组件内保留可重试的 Operation id，Host 接受后才清空。停止操作调用 `SessionFace.cancel()`，界面继续等待 Host Snapshot 结束运行。Interaction 通过 `PendingWait.respond()` 发送，只有 Host 持久提交后的 resolved Frame 或新基线能移除；权限撤销、竞争和陈旧请求显示不同错误。
 
-手机 Session 详情占用顶栏和底部导航之间的可用高度。待办和对话记录在各自区域滚动，排队输入始终保留在底部导航上方；桌面布局继续按文档流展示完整页面。
+Session 是 Companion 根路径的默认入口。手机 Session 详情使用独立聊天工作面：紧凑顶栏展示返回、标题、Workspace、模型、连接和运行状态，对话记录占用剩余高度，排队输入固定在底部安全区；全局品牌栏和底部导航在详情内隐藏，返回列表后恢复。待办和对话记录在各自区域滚动，桌面布局继续按文档流展示完整页面。
