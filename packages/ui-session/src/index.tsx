@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import type { FormEvent } from 'react'
 import {
   ArrowLeft,
+  ArrowUp,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -13,7 +14,6 @@ import {
   MessageSquare,
   Plus,
   Play,
-  Send,
   ShieldCheck,
   Square,
   X,
@@ -390,11 +390,12 @@ function promptErrorMessage(error: RpcError): string {
   }
 }
 
-function PromptComposer({ session, snapshot, connected, allowPrompt }: {
+function PromptComposer({ session, snapshot, connected, allowPrompt, modelLabel }: {
   session: SessionFace
   snapshot: ConversationSnapshot
   connected: boolean
   allowPrompt: boolean
+  modelLabel: string
 }) {
   const [draft, setDraft] = useState('')
   const [operation, setOperation] = useState<ReturnType<typeof OperationId>>()
@@ -436,10 +437,6 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
 
   return (
     <section className="prompt-composer" data-testid="prompt-composer">
-      <div className="prompt-heading">
-        <div><span>发送到 Harness</span><h2>排队消息</h2></div>
-        {queued.length > 0 && <span><Clock3 aria-hidden="true" size={15} />{queued.length} 条等待中</span>}
-      </div>
       {queued.length > 0 && (
         <ol className="prompt-queue" aria-label="等待执行的消息">
           {queued.map(item => <li key={item.id}>{item.preview || '无文字预览'}</li>)}
@@ -453,11 +450,11 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
         <div className="prompt-unavailable"><CircleAlert aria-hidden="true" size={18} /><span>这个 Session 已移除，不能继续发送</span></div>
       ) : (
         <form className="prompt-form" onSubmit={submit}>
-          <div className="prompt-input-row">
+          <div className="prompt-card" data-testid="prompt-card">
             <textarea
               aria-label="排队消息"
-              placeholder="给 Agent 发送消息"
-              rows={3}
+              placeholder="给智能体发消息"
+              rows={2}
               value={draft}
               disabled={!connected || submitting}
               onChange={event => {
@@ -466,23 +463,28 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
                 setError(undefined)
               }}
             />
-            <div className="prompt-command-buttons">
-              {snapshot.running && (
-                <button className="button secondary prompt-stop" title="停止生成" aria-label="停止生成" type="button" disabled={!connected || stopping} onClick={stop}>
-                  {stopping
-                    ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>正在停止</span></>
-                    : <><Square aria-hidden="true" size={16} /><span>停止生成</span></>}
+            <div className="prompt-toolbar">
+              <div className="prompt-context-meta">
+                <span><ShieldCheck aria-hidden="true" size={15} />完整控制</span>
+                <span data-connected={connected}>{connected ? '已连接' : '重新连接中'}</span>
+                {queued.length > 0 && <span><Clock3 aria-hidden="true" size={14} />{queued.length} 条排队</span>}
+              </div>
+              <div className="prompt-command-buttons">
+                <span className="prompt-model" title={modelLabel}>{modelLabel}</span>
+                {snapshot.running && (
+                  <button className="button secondary prompt-stop" title="停止生成" aria-label="停止生成" type="button" disabled={!connected || stopping} onClick={stop}>
+                    {stopping
+                      ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>正在停止</span></>
+                      : <><Square aria-hidden="true" size={15} /><span>停止生成</span></>}
+                  </button>
+                )}
+                <button className="button primary prompt-send" aria-label="排队发送" title="发送消息" type="submit" disabled={!connected || submitting || text === ''}>
+                  {submitting
+                    ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>等待确认</span></>
+                    : <><ArrowUp aria-hidden="true" size={19} /><span>排队发送</span></>}
                 </button>
-              )}
-              <button className="button primary prompt-send" aria-label="排队发送" title="发送消息" type="submit" disabled={!connected || submitting || text === ''}>
-                {submitting
-                  ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>等待确认</span></>
-                  : <><Send aria-hidden="true" size={18} /><span>排队发送</span></>}
-              </button>
+              </div>
             </div>
-          </div>
-          <div className="prompt-actions">
-            <span>{connected ? '发送后进入当前 Session' : '正在重新连接 Harness'}</span>
           </div>
           {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{error}</p>}
           {stopError !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{stopError}</p>}
@@ -492,11 +494,12 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
   )
 }
 
-function SessionConversation({ session, connected, allowInteractions, allowPrompt }: {
+function SessionConversation({ session, connected, allowInteractions, allowPrompt, modelLabel }: {
   session: SessionFace
   connected: boolean
   allowInteractions: boolean
   allowPrompt: boolean
+  modelLabel: string
 }) {
   const snapshot = useSyncExternalStore(
     listener => session.subscribe(listener),
@@ -518,7 +521,7 @@ function SessionConversation({ session, connected, allowInteractions, allowPromp
         </div>
       )}
       <ConversationHistory session={session} snapshot={snapshot} />
-      <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} />
+      <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} modelLabel={modelLabel} />
     </div>
   )
 }
@@ -579,6 +582,7 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
         connected={host !== undefined}
         allowInteractions={trust.canAnswerInteractions()}
         allowPrompt={trust.canPrompt()}
+        modelLabel={host?.model ?? 'Host 默认模型'}
       />
     </div>
   )

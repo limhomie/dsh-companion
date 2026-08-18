@@ -9,6 +9,7 @@
     "@deepseek-ai/dsh-api-remotes": "link:../../../deepseek-harness/packages/api/remotes",
     "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
     "@deepseek-ai/dsh-client-runtime": "link:../../../deepseek-harness/packages/client/runtime",
+    "@deepseek-ai/dsh-client-ui-primitives": "link:../../../deepseek-harness/packages/client/ui-primitives",
     "@dsh-companion/device-trust-web": "workspace:*",
     "@deepseek-ai/dsh-llm": "link:../../../deepseek-harness/packages/llm/llm",
     "@deepseek-ai/dsh-user-questions": "link:../../../deepseek-harness/packages/interaction/user-questions",

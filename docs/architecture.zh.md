@@ -312,6 +312,8 @@ Session 页面包含：
 
 手机布局只使用一个主面板。Session 详情隐藏全局品牌栏和底部导航，由紧凑会话顶栏、占满剩余高度的 Conversation 和底部常驻输入区组成；返回 Session 列表后恢复三个顶层入口。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
 
+Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输入作为字面文本显示在右侧气泡中，Agent 正文使用共享 `ui-primitives` Markdown Renderer，Reasoning 与 Tool 活动使用紧凑的可展开轨迹行。已完成 Tool 调用只与权威结果一起显示一次。一体化 Composer 只展示已经组装的能力；视觉接近网页版不代表已经支持附件、模型切换或权限切换。
+
 单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之前，使修改操作不依赖历史记录的内层滚动位置。
 
 ### 11.3 未知功能

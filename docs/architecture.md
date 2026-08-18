@@ -311,6 +311,8 @@ The session screen contains:
 
 The layout uses one primary pane on phones. Session detail hides the global brand bar and bottom navigation, leaving a compact conversation header, a transcript that fills the remaining height, and a bottom composer; returning to the Session list restores the three top-level destinations. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
 
+The conversation renderer follows the Harness Web client's semantic hierarchy: user input is literal text in a right-aligned bubble, assistant prose uses the shared `ui-primitives` Markdown renderer, and reasoning and tool activity use compact expandable trajectory rows. A completed tool call appears once with its authoritative result. The unified composer exposes only assembled capabilities; its visual similarity to the Web client does not imply attachments, model switching, or permission switching.
+
 The single-pane Session places pending approvals, questions, and plan reviews before conversation history, so mutating actions do not depend on the history scroller's position.
 
 ### 11.3 Unknown features

@@ -84,7 +84,7 @@ adb install -r "D:\dsh-companion\apps\android\android\app\build\outputs\apk\debu
 
 批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion Session 列表；收件箱与设置保留在列表页底部导航。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启或 Tailscale 暂时断开会使当前连接失效，但不会删除设备记录；恢复网络后点击“重试连接”会再次签名。只有电脑撤销设备，或在 App 中选择“删除配对”并二次确认后，才必须重新配对。
 
-Owner 可以直接打开已有 Session，或点击列表右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；该页只保留会话顶栏、对话记录和底部输入框，发送按钮与运行期间的停止按钮位于输入框右侧。返回 Session 列表后才能切换收件箱和设置。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。
+Owner 可以直接打开已有 Session，或点击列表右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；该页只保留会话顶栏、对话记录和底部输入框。用户消息显示为右侧气泡，Agent 正文按 Harness 网页端的 Markdown 规则显示，思考与 Tool 调用折叠为可展开轨迹行；发送按钮与运行期间的停止按钮位于一体化输入框右下角。返回 Session 列表后才能切换收件箱和设置。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。当前输入只支持纯文本；附件、模型切换和权限切换尚未接入，不会因为界面接近网页版而出现虚假控件。
 
 APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私钥交给 JavaScript。不要把 Capacitor `server.url` 指向 Tailscale Origin，不要放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie，也不要把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
 
@@ -133,4 +133,4 @@ pnpm android:sync
 pnpm android:apk
 ```
 
-`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、配对、Workspace Session 创建、首条消息、停止运行、失败与空状态、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连、创建 Session、真实模型对话与设置页权限显示。
+`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、配对、Workspace Session 创建、Markdown 对话层级、Tool 去重、首条消息、停止运行、失败与空状态、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连、创建 Session、真实模型对话与设置页权限显示。

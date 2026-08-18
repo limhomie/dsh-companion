@@ -165,6 +165,13 @@ test('handles Harness Fixture questions and approval through the real client run
   await page.getByRole('button', { name: '加载更早的对话', exact: true }).click()
   await expect(page.getByText('问题 29：fixture 历史消息，用于翻页与渲染验收。', { exact: true })).toHaveCount(1)
   await expect.poll(() => page.getByTestId('conversation-scroll').evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  await expect(page.getByRole('heading', { name: 'Markdown fixture', level: 1 })).toBeVisible()
+  const literalUserMarkdown = page.getByText('用户字面量：# 不渲染 `code` [link](https://example.com)', { exact: true })
+  await expect(literalUserMarkdown).toBeVisible()
+  await expect(literalUserMarkdown.locator('code')).toHaveCount(0)
+  await expect(page.locator('[data-call-id="fx-call-69"]')).toHaveCount(1)
+  await expect(page.locator('[data-call-id="fx-call-69"]')).toHaveAttribute('data-state', 'completed')
+  await expect(page.locator('[data-testid="conversation-row"][aria-label="Agent"] > .message-body:empty')).toHaveCount(0)
   await expect(page.getByText('dangerous_tool', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('你现在更想招哪类 Agent/Harness 候选人？', { exact: true })).toBeVisible()
   if (test.info().project.name !== 'desktop') {
@@ -227,6 +234,7 @@ test('starts a Workspace session, sends its first message, and stops the running
 
   await expect(page).toHaveURL(/\/companion\/sessions\/fx-1\?fixture$/)
   await expect(page.getByRole('heading', { name: 'fixture', exact: true })).toBeVisible()
+  await expect(page.getByTestId('prompt-card')).toBeVisible()
   if (test.info().project.name !== 'desktop') {
     await expect(page.getByTestId('session-chat-header')).toBeVisible()
     await expect(page.getByRole('navigation', { name: '移动主导航' })).toBeHidden()

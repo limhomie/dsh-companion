@@ -5,3 +5,5 @@
 Workspace、Session、历史、运行状态和等待队列只读取上游 Runtime Snapshot，不保存业务状态副本。创建成功后才打开 Host 返回的 Session；Prompt 草稿在组件内保留可重试的 Operation id，Host 接受后才清空。停止操作调用 `SessionFace.cancel()`，界面继续等待 Host Snapshot 结束运行。Interaction 通过 `PendingWait.respond()` 发送，只有 Host 持久提交后的 resolved Frame 或新基线能移除；权限撤销、竞争和陈旧请求显示不同错误。
 
 Session 是 Companion 根路径的默认入口。手机 Session 详情使用独立聊天工作面：紧凑顶栏展示返回、标题、Workspace、模型、连接和运行状态，对话记录占用剩余高度，排队输入固定在底部安全区；全局品牌栏和底部导航在详情内隐藏，返回列表后恢复。待办和对话记录在各自区域滚动，桌面布局继续按文档流展示完整页面。
+
+对话 Renderer 复用 Harness `ui-primitives` 的 Markdown 组件展示 Agent 正文，用户输入保持字面文本并使用右对齐气泡。Reasoning 与 Tool 调用显示为可展开轨迹行；已有结果的 Tool 调用只显示一次，折叠态保留名称、主要参数和完成状态。底部 Composer 把文本区、权限、连接、模型、队列状态与发送或停止操作放在同一个容器中，但不展示尚未接入的附件、模型切换或权限切换控件。
