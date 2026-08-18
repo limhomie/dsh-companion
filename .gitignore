@@ -1,6 +1,7 @@
 node_modules/
 dist/
 packages/host-web/web-dist/
+apps/android/www/
 .tmp/
 coverage/
 playwright-report/
@@ -8,6 +9,8 @@ test-results/
 .playwright-mcp/
 *.log
 *.tsbuildinfo
+*.jks
+*.keystore
 .env
 .env.*
 !.env.example

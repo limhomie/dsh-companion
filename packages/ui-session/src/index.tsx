@@ -1,18 +1,21 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { FormEvent } from 'react'
 import {
   ArrowLeft,
+  ArrowUp,
   Check,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
   CircleHelp,
   Clock3,
+  Folder,
   LoaderCircle,
   MessageSquare,
+  Plus,
   Play,
-  Send,
   ShieldCheck,
+  Square,
   X,
 } from 'lucide-react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -21,18 +24,20 @@ import { OperationId } from '@deepseek-ai/dsh-client-connection/client'
 import type { AskUserQuestionItem } from '@deepseek-ai/dsh-user-questions/types'
 import type {
   ISessions,
+  IWorkspaces,
   ConversationSnapshot,
   PendingInteraction,
   SessionFace,
   SessionSummary,
+  WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
-import { workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
+import { SessionCreateError, workspaceTitleOf } from '@deepseek-ai/dsh-client-runtime/client'
 import type { RouteProps } from '@dsh-companion/ui-shell'
-import type { CompanionDeviceTrustService } from '@dsh-companion/device-trust-web'
+import type { CompanionDeviceTrust } from '@dsh-companion/device-trust-web'
 import { ConversationHistory } from './conversation.tsx'
 
 export const name = 'companion-ui-session'
-export const inject = ['companionUi', 'companionDeviceTrust', 'connection', 'sessions']
+export const inject = ['companionUi', 'companionDeviceTrust', 'connection', 'sessions', 'workspaces']
 
 type ApprovalWait = Extract<PendingInteraction, { kind: 'approval' }>
 type QuestionWait = Extract<PendingInteraction, { kind: 'question' }>
@@ -66,14 +71,117 @@ function summaryLabel(session: SessionSummary): string {
   return 'Session 当前没有运行中的任务'
 }
 
-function SessionsList({ sessions, navigate }: { sessions: ISessions; navigate(path: string): void }) {
+function sessionCreateError(cause: unknown): string {
+  if (cause instanceof SessionCreateError) {
+    switch (cause.rpcError.code) {
+      case 'forbidden': return '此设备没有新建 Session 的权限'
+      case 'workspace-not-found': return '这个 Workspace 已不存在，请等待列表刷新'
+      case 'workspace-attach-failed': return 'Session 已创建，但未能加入这个 Workspace'
+      default: return cause.rpcError.message
+    }
+  }
+  return cause instanceof Error ? cause.message : '无法创建 Session，请重试'
+}
+
+function WorkspacePicker({ sessions, workspaces, connected, navigate, onClose }: {
+  sessions: ISessions
+  workspaces: IWorkspaces
+  connected: boolean
+  navigate(path: string): void
+  onClose(): void
+}) {
+  const snapshot = useSyncExternalStore(workspaces.list.subscribe, workspaces.list.getSnapshot)
+  const mounted = useRef(true)
+  const [creating, setCreating] = useState<WorkspaceId>()
+  const [error, setError] = useState<string>()
+
+  useEffect(() => () => { mounted.current = false }, [])
+
+  const connect = async (workspaceId: WorkspaceId): Promise<void> => {
+    setCreating(workspaceId)
+    setError(undefined)
+    try {
+      const sessionId = await workspaces.connectWorkspace(workspaceId)
+      if (!mounted.current) return
+      sessions.open(sessionId)
+      navigate(`/sessions/${encodeURIComponent(sessionId)}`)
+    } catch (cause) {
+      if (!mounted.current) return
+      setError(sessionCreateError(cause))
+      setCreating(undefined)
+    }
+  }
+
+  return (
+    <section className="workspace-picker" aria-labelledby="workspace-picker-title">
+      <div className="workspace-picker-heading">
+        <div><span>新建对话</span><h2 id="workspace-picker-title">选择工作区</h2></div>
+        <button className="icon-button" title="关闭" aria-label="关闭工作区选择" type="button" disabled={creating !== undefined} onClick={onClose}><X aria-hidden="true" size={18} /></button>
+      </div>
+      {snapshot.phase !== 'ready' ? (
+        <div className="workspace-picker-state"><LoaderCircle className="spin" aria-hidden="true" size={19} />正在读取电脑上的 Workspace</div>
+      ) : snapshot.items.length === 0 ? (
+        <div className="workspace-picker-state"><Folder aria-hidden="true" size={19} />请先在电脑 Harness 中注册 Workspace</div>
+      ) : (
+        <div className="workspace-options">
+          {snapshot.items.map(workspace => (
+            <button
+              className="workspace-option"
+              type="button"
+              key={workspace.workspaceId}
+              disabled={!connected || creating !== undefined}
+              onClick={() => { void connect(workspace.workspaceId) }}
+            >
+              <span className="workspace-option-icon"><Folder aria-hidden="true" size={18} /></span>
+              <span><strong>{workspace.title}</strong><small>{workspace.path}</small></span>
+              {creating === workspace.workspaceId
+                ? <LoaderCircle className="spin" aria-label="正在创建 Session" size={18} />
+                : <ChevronRight aria-hidden="true" size={18} />}
+            </button>
+          ))}
+        </div>
+      )}
+      {!connected && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />正在重新连接 Harness</p>}
+      {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{error}</p>}
+    </section>
+  )
+}
+
+function SessionsList({ sessions, workspaces, connection, trust, navigate }: {
+  sessions: ISessions
+  workspaces: IWorkspaces
+  connection: ConnectionHandle
+  trust: CompanionDeviceTrust
+  navigate(path: string): void
+}) {
   const snapshot = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  const workspaceSnapshot = useSyncExternalStore(workspaces.list.subscribe, workspaces.list.getSnapshot)
+  const host = useHost(connection)
+  useSyncExternalStore(trust.subscribe, trust.getSnapshot)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const canCreate = trust.canPrompt()
   return (
     <div className="page page-sessions">
       <header className="page-header">
         <div><p className="eyebrow">工作室电脑</p><h1>Session</h1></div>
-        <div className="header-count subtle"><strong>{snapshot.ids.length}</strong><span>最近任务</span></div>
+        <div className="session-header-actions">
+          <div className="header-count subtle"><strong>{snapshot.ids.length}</strong><span>最近任务</span></div>
+          {canCreate && (
+            <button className="icon-button" title="新建 Session" aria-label="新建 Session" type="button" disabled={host === undefined} onClick={() => { setPickerOpen(current => !current) }}>
+              <Plus aria-hidden="true" size={20} />
+            </button>
+          )}
+        </div>
       </header>
+      {pickerOpen && canCreate && (
+        <WorkspacePicker
+          sessions={sessions}
+          workspaces={workspaces}
+          connected={host !== undefined}
+          navigate={navigate}
+          onClose={() => { setPickerOpen(false) }}
+        />
+      )}
       <section className="session-list" aria-label="Session 列表">
         {snapshot.ids.map(id => {
           const session = snapshot.byId[id]
@@ -94,7 +202,22 @@ function SessionsList({ sessions, navigate }: { sessions: ISessions; navigate(pa
           )
         })}
         {snapshot.phase === 'ready' && snapshot.ids.length === 0 && (
-          <div className="empty-state"><MessageSquare aria-hidden="true" size={28} /><strong>还没有 Session</strong></div>
+          <div className="empty-state">
+            <MessageSquare aria-hidden="true" size={28} />
+            <strong>还没有 Session</strong>
+            <span>{canCreate
+              ? workspaceSnapshot.phase !== 'ready'
+                ? '正在读取电脑上的 Workspace'
+                : workspaceSnapshot.items.length === 0
+                  ? '请先在电脑 Harness 中注册 Workspace'
+                  : '选择电脑上的 Workspace 开始对话'
+              : '此设备只有查看权限'}</span>
+            {canCreate && workspaceSnapshot.phase === 'ready' && workspaceSnapshot.items.length > 0 && (
+              <button className="button primary" type="button" disabled={host === undefined} onClick={() => { setPickerOpen(true) }}>
+                <Plus aria-hidden="true" size={18} />开始对话
+              </button>
+            )}
+          </div>
         )}
       </section>
     </div>
@@ -267,16 +390,19 @@ function promptErrorMessage(error: RpcError): string {
   }
 }
 
-function PromptComposer({ session, snapshot, connected, allowPrompt }: {
+function PromptComposer({ session, snapshot, connected, allowPrompt, modelLabel }: {
   session: SessionFace
   snapshot: ConversationSnapshot
   connected: boolean
   allowPrompt: boolean
+  modelLabel: string
 }) {
   const [draft, setDraft] = useState('')
   const [operation, setOperation] = useState<ReturnType<typeof OperationId>>()
   const [submitting, setSubmitting] = useState(false)
+  const [stopping, setStopping] = useState(false)
   const [error, setError] = useState<string>()
+  const [stopError, setStopError] = useState<string>()
   const queued = snapshot.queue.filter(item => item.placement === 'queued')
   const ordinary = snapshot.subagent === null
   const available = allowPrompt && ordinary && !snapshot.removed
@@ -298,12 +424,19 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
     }).finally(() => { setSubmitting(false) })
   }
 
+  const stop = (): void => {
+    if (!connected || stopping || !snapshot.running) return
+    setStopping(true)
+    setStopError(undefined)
+    void session.cancel().then(result => {
+      if (!result.ok) throw new Error(promptErrorMessage(result.error))
+    }).catch((cause: unknown) => {
+      setStopError(cause instanceof Error ? cause.message : '停止失败，可以重试')
+    }).finally(() => { setStopping(false) })
+  }
+
   return (
     <section className="prompt-composer" data-testid="prompt-composer">
-      <div className="prompt-heading">
-        <div><span>发送到 Harness</span><h2>排队消息</h2></div>
-        {queued.length > 0 && <span><Clock3 aria-hidden="true" size={15} />{queued.length} 条等待中</span>}
-      </div>
       {queued.length > 0 && (
         <ol className="prompt-queue" aria-label="等待执行的消息">
           {queued.map(item => <li key={item.id}>{item.preview || '无文字预览'}</li>)}
@@ -317,38 +450,56 @@ function PromptComposer({ session, snapshot, connected, allowPrompt }: {
         <div className="prompt-unavailable"><CircleAlert aria-hidden="true" size={18} /><span>这个 Session 已移除，不能继续发送</span></div>
       ) : (
         <form className="prompt-form" onSubmit={submit}>
-          <textarea
-            aria-label="排队消息"
-            placeholder="给 Agent 添加下一项任务"
-            rows={3}
-            value={draft}
-            disabled={!connected || submitting}
-            onChange={event => {
-              setDraft(event.target.value)
-              setOperation(undefined)
-              setError(undefined)
-            }}
-          />
-          <div className="prompt-actions">
-            <span>{connected ? '消息会进入当前 Session 队列' : '正在重新连接 Harness'}</span>
-            <button className="button primary" type="submit" disabled={!connected || submitting || text === ''}>
-              {submitting
-                ? <><LoaderCircle className="spin" aria-hidden="true" size={18} />等待确认</>
-                : <><Send aria-hidden="true" size={18} />排队发送</>}
-            </button>
+          <div className="prompt-card" data-testid="prompt-card">
+            <textarea
+              aria-label="排队消息"
+              placeholder="给智能体发消息"
+              rows={2}
+              value={draft}
+              disabled={!connected || submitting}
+              onChange={event => {
+                setDraft(event.target.value)
+                setOperation(undefined)
+                setError(undefined)
+              }}
+            />
+            <div className="prompt-toolbar">
+              <div className="prompt-context-meta">
+                <span><ShieldCheck aria-hidden="true" size={15} />完整控制</span>
+                <span data-connected={connected}>{connected ? '已连接' : '重新连接中'}</span>
+                {queued.length > 0 && <span><Clock3 aria-hidden="true" size={14} />{queued.length} 条排队</span>}
+              </div>
+              <div className="prompt-command-buttons">
+                <span className="prompt-model" title={modelLabel}>{modelLabel}</span>
+                {snapshot.running && (
+                  <button className="button secondary prompt-stop" title="停止生成" aria-label="停止生成" type="button" disabled={!connected || stopping} onClick={stop}>
+                    {stopping
+                      ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>正在停止</span></>
+                      : <><Square aria-hidden="true" size={15} /><span>停止生成</span></>}
+                  </button>
+                )}
+                <button className="button primary prompt-send" aria-label="排队发送" title="发送消息" type="submit" disabled={!connected || submitting || text === ''}>
+                  {submitting
+                    ? <><LoaderCircle className="spin" aria-hidden="true" size={18} /><span>等待确认</span></>
+                    : <><ArrowUp aria-hidden="true" size={19} /><span>排队发送</span></>}
+                </button>
+              </div>
+            </div>
           </div>
           {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{error}</p>}
+          {stopError !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{stopError}</p>}
         </form>
       )}
     </section>
   )
 }
 
-function SessionConversation({ session, connected, allowInteractions, allowPrompt }: {
+function SessionConversation({ session, connected, allowInteractions, allowPrompt, modelLabel }: {
   session: SessionFace
   connected: boolean
   allowInteractions: boolean
   allowPrompt: boolean
+  modelLabel: string
 }) {
   const snapshot = useSyncExternalStore(
     listener => session.subscribe(listener),
@@ -370,7 +521,7 @@ function SessionConversation({ session, connected, allowInteractions, allowPromp
         </div>
       )}
       <ConversationHistory session={session} snapshot={snapshot} />
-      <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} />
+      <PromptComposer session={session} snapshot={snapshot} connected={connected} allowPrompt={allowPrompt} modelLabel={modelLabel} />
     </div>
   )
 }
@@ -378,7 +529,7 @@ function SessionConversation({ session, connected, allowInteractions, allowPromp
 function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
   sessions: ISessions
   connection: ConnectionHandle
-  trust: CompanionDeviceTrustService
+  trust: CompanionDeviceTrust
   rawId: string
   navigate(path: string): void
 }) {
@@ -406,17 +557,20 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
 
   return (
     <div className="page page-session-detail">
-      <button className="back-button" type="button" onClick={() => { navigate('/sessions') }}>
-        <ArrowLeft aria-hidden="true" size={18} />返回 Session
-      </button>
-      <header className="session-header">
+      <header className="session-chat-header" data-testid="session-chat-header">
+        <button className="back-button" title="返回 Session" aria-label="返回 Session" type="button" onClick={() => { navigate('/sessions') }}>
+          <ArrowLeft aria-hidden="true" size={20} /><span>返回 Session</span>
+        </button>
         <div className="session-heading-copy">
-          <span className="session-context">{workspaceLabel(summary.cwd)} · {summary.agentPreset ?? '默认 Agent'}</span>
           <h1>{summary.displayTitle}</h1>
-          <p>{summaryLabel(summary)}</p>
+          <span className="session-context">
+            <span className="status-dot" data-phase={host === undefined ? 'booting' : 'connected'} />
+            {workspaceLabel(summary.cwd)} · {host?.model ?? 'Host 默认模型'}
+          </span>
         </div>
         <span className="session-status" data-status={status}><StatusIcon aria-hidden="true" size={16} />{meta.label}</span>
       </header>
+      <p className="session-summary">{summaryLabel(summary)}</p>
       <div className="session-facts" aria-label="Session 上下文">
         <span><small>模型</small>{host?.model ?? 'Host 默认'}</span>
         <span><small>工作区</small>{workspaceLabel(summary.cwd)}</span>
@@ -428,19 +582,21 @@ function SessionDetail({ sessions, connection, trust, rawId, navigate }: {
         connected={host !== undefined}
         allowInteractions={trust.canAnswerInteractions()}
         allowPrompt={trust.canPrompt()}
+        modelLabel={host?.model ?? 'Host 默认模型'}
       />
     </div>
   )
 }
 
-function SessionsRoute({ sessions, connection, trust, path, navigate }: {
+function SessionsRoute({ sessions, workspaces, connection, trust, path, navigate }: {
   sessions: ISessions
+  workspaces: IWorkspaces
   connection: ConnectionHandle
-  trust: CompanionDeviceTrustService
+  trust: CompanionDeviceTrust
 } & RouteProps) {
   const detail = useMemo(() => /^\/sessions\/([^/]+)$/.exec(path)?.[1], [path])
   return detail === undefined
-    ? <SessionsList sessions={sessions} navigate={navigate} />
+    ? <SessionsList sessions={sessions} workspaces={workspaces} connection={connection} trust={trust} navigate={navigate} />
     : <SessionDetail sessions={sessions} connection={connection} trust={trust} rawId={detail} navigate={navigate} />
 }
 
@@ -450,9 +606,9 @@ export function apply(ctx: Context): void {
     id: 'sessions',
     path: '/sessions',
     label: 'Session',
-    order: 20,
+    order: 10,
     icon: MessageSquare,
     match: path => path === '/sessions' || path.startsWith('/sessions/'),
-    component: props => <SessionsRoute sessions={ctx.sessions} connection={connection} trust={ctx.companionDeviceTrust} {...props} />,
+    component: props => <SessionsRoute sessions={ctx.sessions} workspaces={ctx.workspaces} connection={connection} trust={ctx.companionDeviceTrust} {...props} />,
   })
 }

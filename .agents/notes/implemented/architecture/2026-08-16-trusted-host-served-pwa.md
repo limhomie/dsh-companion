@@ -37,4 +37,4 @@ Unit tests cover the credentialed same-origin HTTP client, cancellation, and the
 - A viewer phone can inspect real Harness conversations without mutation authority; an owner phone uses the official client.
 - The real mobile path requires Tailscale installation, Tailnet access, a configured HTTPS origin, and a Harness checkout containing the device-trust packages.
 - Browser-visible sessions can contain sensitive prompts, model output, tool arguments, and paths. Pair only devices and browser profiles that should read that data, and do not expose the origin through Tailscale Funnel or the public internet.
-- Installable PWA support, native key storage, notifications, mobile official-client layout, and relay transport remain later capabilities.
+- Installability and the bounded static cache are owned by the [PWA and Capacitor decision](2026-08-17-installable-pwa-and-capacitor-android.md). Native key storage, notifications, mobile official-client layout, and relay transport remain later capabilities.

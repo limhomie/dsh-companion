@@ -21,7 +21,7 @@ import {
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    companionDeviceTrust: CompanionDeviceTrustService
+    companionDeviceTrust: CompanionDeviceTrust
   }
 }
 
@@ -30,6 +30,31 @@ interface ResponseParser<T> {
 }
 
 type FetchRequest = (input: string, init: RequestInit) => Promise<Response>
+
+/** Device-trust operations consumed by platform-neutral Companion UI. */
+export interface CompanionDeviceTrustClient {
+  createOffer(): Promise<CreatePairingResponse>
+  claimOffer(offerId: string, label: string): Promise<ClaimPairingResponse>
+  pollClaim(claimId: string, claimSecret: string): Promise<PollPairingResponse>
+  pendingClaims(): Promise<PendingPairingResponse>
+  approveClaim(claimId: string, verificationCode: string): Promise<void>
+  devices(): Promise<readonly TrustedDeviceResponse[]>
+  currentDevice(): Promise<Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'>>
+  updateAccess(deviceId: string, access: TrustedDeviceResponse['access']): Promise<void>
+  revoke(deviceId: string): Promise<void>
+}
+
+/** Platform-neutral device authority consumed by Companion features. */
+export interface CompanionDeviceTrust {
+  readonly client: CompanionDeviceTrustClient
+  readonly fixture: boolean
+  readonly isLocal: boolean
+  canAnswerInteractions(): boolean
+  canPrompt(): boolean
+  getTrustState(): CompanionTrustState
+  getSnapshot(): Pick<TrustedDeviceResponse, 'deviceId' | 'label' | 'access'> | undefined
+  subscribe(listener: () => void): () => void
+}
 
 /** Browser authority established before the Companion runtime starts. */
 export type CompanionTrustState = 'local' | 'paired' | 'unpaired'
@@ -52,7 +77,7 @@ export class DeviceTrustClientError extends Error {
  * Browser transport for the paired-device protocol. Each request owns an
  * AbortController; close aborts and awaits every in-flight request.
  */
-export class DeviceTrustHttpClient {
+export class DeviceTrustHttpClient implements CompanionDeviceTrustClient {
   private readonly controllers = new Set<AbortController>()
   private readonly inFlight = new Set<Promise<unknown>>()
   private closed = false
@@ -160,7 +185,7 @@ export class DeviceTrustHttpClient {
 }
 
 /** Plugin-scoped device trust client and the current browser authority. */
-export class CompanionDeviceTrustService extends Service {
+export class CompanionDeviceTrustService extends Service implements CompanionDeviceTrust {
   static inject = ['connection']
 
   readonly client = new DeviceTrustHttpClient()

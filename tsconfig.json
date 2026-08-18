@@ -13,6 +13,12 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "paths": {
+      "@deepseek-ai/dsh-client-connection/client": [
+        "../deepseek-harness/packages/client/connection/src/client/index.ts"
+      ],
+      "@deepseek-ai/dsh-device-trust": [
+        "../deepseek-harness/packages/identity/device-trust/src/index.ts"
+      ],
       "@deepseek-ai/dsh-device-trust-connection": [
         "../deepseek-harness/packages/identity/device-trust-connection/src/protocol.ts"
       ],

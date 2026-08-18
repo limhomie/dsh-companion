@@ -1,0 +1,21 @@
+{
+  "name": "@dsh-companion/android",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "apk:debug": "pnpm run sync && node ../../scripts/build-android-debug.mjs",
+    "build:web": "pnpm --filter @dsh-companion/web build:native",
+    "generate:assets": "capacitor-assets generate --android --assetPath ../web/public --androidProject android --iconBackgroundColor \"#f5f6f4\" --iconBackgroundColorDark \"#20231f\" --splashBackgroundColor \"#f5f6f4\" --splashBackgroundColorDark \"#20231f\"",
+    "open": "cap open android",
+    "sync": "pnpm run build:web && pnpm run generate:assets && cap sync android && node ../../scripts/normalize-android-text.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/core": "8.5.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "8.5.0"
+  }
+}

@@ -18,9 +18,12 @@ Harness 后端仍然只监听 `127.0.0.1`。Tailscale Serve 提供私有网络�
 - 新配对设备默认获得 Viewer 权限；本机设置页在显示完整控制警告后，可以明确把设备提升为 Owner。
 - 认证后的 Owner 启动 Harness 官方 Web 客户端；Viewer 留在 Companion，未知目标和 Host 原生 API 均按本机专用拒绝。
 - `dsh-companion-host-web` 插件把构建产物挂载到 Harness 的 `/companion` 前缀，并在非回环 Host 或 Harness 版本不一致时拒绝加载。
+- `/companion/` 提供可安装 Manifest、主屏幕图标和只缓存版本化静态资源的 Service Worker；`/companion/?install=1` 为 Viewer 与 Owner 提供不会启动 Harness 的稳定安装入口，API 与 WebSocket 数据不进入缓存。
+- Capacitor 8 Android 工程复用同一个 React/Vite Entry，并在原生设备身份完成前停在不连接 Harness 的安全状态。
+- 原生 Owner 可以选择 Host 已注册 Workspace、创建或复用空白 Session、发送第一条消息并停止运行，不在手机端复制 Harness Session 状态。
 - 官方 Harness Fixture 驱动的无密钥浏览器测试覆盖 390x844、430x932 和 1280x800。
 
-完整机制见 [架构文档](docs/architecture.zh.md)、[可信 Host 同源 PWA 决策](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md) 和 [官方 Owner 客户端决策](.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)。工程修改遵循 [AGENTS.md](AGENTS.md) 与 [设计和开发流程](docs/design-workflow.zh.md)。
+完整机制见 [架构文档](docs/architecture.zh.md)、[手机安装与 Android 构建](docs/mobile.zh.md)、[可信 Host 同源 PWA 决策](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)和[可安装 PWA 与 Capacitor 决策](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)。工程修改遵循 [AGENTS.md](AGENTS.md) 与 [设计和开发流程](docs/design-workflow.zh.md)。
 
 ## 环境准备
 
@@ -32,7 +35,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `c2ea2b202d2d51d3b7e5d0184c61702d00f4a221`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
+Companion 锁定 DeepSeek Harness `0.1.0-rc.5` 和提交 `f652a3263943a26ebfa3f0945230c1f40884637d`。需要 Node.js 22.19 以上版本、pnpm 10 和 Chrome。
 
 首次准备 Harness：
 
@@ -88,6 +91,6 @@ pnpm run test:web
 
 `check` 运行 Harness checkout 校验、类型检查、Lint、单元测试和生产构建；`test:web` 使用官方 Fixture 与真实 Client Runtime 运行三种视口的浏览器流程。
 
-## 下一阶段
+## PWA 与 Android
 
-下一阶段通过移动布局插件适配官方客户端，增加可安装 PWA 的静态资源缓存，并用轻量 Capacitor Android 外壳复用同一套功能图。原生扫码、通知、深链接和密钥绑定凭据继续通过平台插件实现；Harness 执行与模型 Credential 始终留在电脑上。
+手机浏览器通过 `/companion/?install=1` 把 Companion 安装为 PWA。Android 原生工程的同步、Debug APK、Android Studio 与后续 GitHub Releases 路径见[手机安装与 Android 构建](docs/mobile.zh.md)。当前 APK 只验证原生打包和安全入口，真实连接仍使用 PWA；原生扫码、通知、后台重连和 Keystore 设备身份继续通过平台插件实现。Harness 执行与模型 Credential 始终留在电脑上。

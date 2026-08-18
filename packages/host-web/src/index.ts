@@ -64,7 +64,7 @@ export async function apply(ctx: Context): Promise<void> {
       }
       const pathname = decodeURIComponent(new URL(request.url ?? COMPANION_PREFIX, 'http://x').pathname)
       const relativePath = pathname.slice(COMPANION_PREFIX.length) || '/'
-      await serveStatic(relativePath, response, resolve(distRoot), distIndex, renderIndex)
+      await serveStatic(request, relativePath, response, resolve(distRoot), distIndex, renderIndex)
     },
   }), `${name}: ${COMPANION_PREFIX} static route`)
 }

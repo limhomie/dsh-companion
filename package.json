@@ -8,13 +8,17 @@
     "node": "^22.19.0 || >=24.0.0"
   },
   "scripts": {
+    "android:apk": "pnpm run verify:harness && pnpm --filter @dsh-companion/android apk:debug",
+    "android:open": "pnpm --filter @dsh-companion/android open",
+    "android:sync": "pnpm run verify:harness && pnpm --filter @dsh-companion/android sync",
     "build": "pnpm run verify:harness && pnpm --filter @dsh-companion/web build",
+    "build:native": "pnpm run verify:harness && pnpm --filter @dsh-companion/web build:native",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
     "dev": "pnpm run verify:harness && pnpm --filter @dsh-companion/web dev --host 127.0.0.1",
     "host": "pnpm run build && node scripts/start-harness.mjs",
     "lint": "oxlint .",
     "test": "vitest run",
-    "test:web": "pnpm run build && playwright test",
+    "test:web": "pnpm run build && pnpm run build:native && playwright test",
     "typecheck": "pnpm run verify:harness && tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/host-web/tsconfig.json",
     "verify:harness": "node scripts/verify-harness.mjs"
   },

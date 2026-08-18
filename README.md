@@ -18,9 +18,12 @@ The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies 
 - Gives every newly paired device viewer access and lets the loopback Settings page explicitly promote it to owner after a complete-control warning.
 - Starts the official Harness Web client for authenticated owners; viewers remain in Companion, and unknown or Host-native API targets fail closed as local-only.
 - Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
+- Publishes an installable manifest, home-screen icons, and a Service Worker that precaches only versioned static assets; `/companion/?install=1` gives viewers and owners a stable installation entry that does not start Harness, and API and WebSocket data are never cached.
+- Includes a Capacitor 8 Android project that reuses the same React/Vite entry and remains outside Harness until native device identity exists.
+- Lets a native owner choose an existing Host workspace, create or reuse its blank session, send the first prompt, and stop a running turn without copying Harness session state.
 - Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
-See the [architecture](docs/architecture.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [official owner-client decision](.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
+See the [architecture](docs/architecture.md), the [Chinese mobile and Android guide](docs/mobile.zh.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [installable PWA and Capacitor decision](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
 
 ## Setup
 
@@ -32,7 +35,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `c2ea2b202d2d51d3b7e5d0184c61702d00f4a221`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
+Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `f652a3263943a26ebfa3f0945230c1f40884637d`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
 Prepare Harness once:
 
@@ -88,6 +91,6 @@ pnpm run test:web
 
 `check` verifies the pinned Harness checkout, types, lint, unit tests, and the production build. `test:web` runs the official Fixture through the real Client Runtime in all three target viewports.
 
-## Next stage
+## PWA and Android
 
-The next stage adapts the official client through a mobile layout plugin, adds an installable PWA asset cache, and packages the same feature graph in a thin Capacitor Android shell. Native QR scanning, notifications, deep links, and key-bound credentials follow through platform plugins; Harness execution and model credentials remain on the computer.
+The browser surface is installable as a PWA from `/companion/?install=1`. The [Chinese mobile and Android guide](docs/mobile.zh.md) documents Capacitor sync, Debug APK builds, Android Studio, and the future GitHub Releases path. The current APK proves packaging and the fail-closed native entry; real connections still use the PWA. Native QR scanning, notifications, background reconnect, and Keystore-backed device identity follow through platform plugins. Harness execution and model credentials remain on the computer.

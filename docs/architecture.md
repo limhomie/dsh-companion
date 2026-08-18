@@ -2,9 +2,9 @@
 
 English | [中文](architecture.zh.md)
 
-Status: architecture baseline; viewer/owner access and official owner-client handoff implemented
+Status: architecture baseline; viewer/owner access, installable PWA, and Android packaging implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), and [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slices are recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md) and [conversation-first mobile UI decision](../.agents/notes/implemented/feature/2026-08-18-conversation-first-mobile-ui.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [native new-session decision](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md), and [native offline recovery decision](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md).
 
 ## 1. Purpose
 
@@ -20,7 +20,7 @@ The initial design makes these decisions:
 2. The first product is a Host-served responsive web application. Host and web client artifacts therefore ship together while the remote protocol is being prepared for independent clients.
 3. The native application uses the same web feature packages inside a thin Capacitor shell. A React Native or Flutter rewrite is not part of the initial plan.
 4. Direct authenticated HTTPS and WebSocket access over LAN or Tailscale is the first transport. A public relay is optional and comes later.
-5. The mobile home screen is an attention inbox, not an empty chat composer.
+5. The mobile home screen is the Sessions workspace; the inbox remains an auxiliary cross-session attention view.
 6. Native releases bundle executable plugin code with the signed application. A Host sends capability data, never arbitrary JavaScript for a native client to execute.
 7. Authentication, authorization, transport, notifications, and UI features are separate plugin responsibilities.
 
@@ -89,9 +89,13 @@ The web build may use the Host-selected browser plugin graph because the Host an
 
 Before the official Client Runtime starts, the Harness Web entry reads the current device. Loopback and authenticated owners start the Host-selected official plugin graph; viewers and unauthenticated browsers enter `/companion/`. Companion resolves device trust before its own Runtime, renders pairing guidance for an explicit `device-unauthorized`, and sends an owner back to the official root. Network, protocol, and unexpected authorization failures remain boot errors.
 
+The PWA installation entry is `/companion/?install=1`. It captures the browser installation request before device trust and the Client Runtime, reads no authentication state, and sends no Harness requests, so a promoted owner remains on the Companion manifest until installation completes instead of moving to the root Harness manifest. The entry bypasses the static cache to confirm that the Tailscale origin is online. Accepting Chrome's prompt starts an installation transaction but does not prove that Android exposed a usable launcher entry. The browser tab reports completion only when its self-related installed web app query succeeds or a standalone launch recorded after that transaction proves that the new entry can open. The installed `start_url` remains `/companion/`; the manifest scope includes the root path so an owner can then enter the official client in the standalone window.
+
 ### 4.2 Native mode
 
-The Capacitor application packages the shell, Cordis runtime, feature plugins, and generic renderers in the signed app. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer.
+The Capacitor 8 Android project packages the same React/Vite entry with relative asset paths. Native boot first uses a non-exportable Android Keystore P-256 key to claim a pairing offer or authenticate a saved device, then supplies the shared runtime with a native Connection carrier. The signed challenge yields only a short memory session; each WebSocket uses a separate one-time handshake ticket. The app never reads the browser device Cookie or stores Harness credentials, model credentials, native sessions, or WebSocket tickets.
+
+After native authentication exists, the signed application packages the shell, Cordis runtime, feature plugins, generic renderers, and platform Providers. The Host returns a versioned capability inventory during the readiness handshake. The client activates compatible local plugins and uses generic presentation for recognized data that has no specialized renderer. A reachability failure enters a retryable connection error without deleting the durable pairing; clearing the Host origin, device id, and Keystore identity requires separate user confirmation.
 
 The native app never downloads executable plugin bundles from a paired Host. This keeps the release review surface finite and prevents a compromised Host from replacing application code.
 
@@ -111,6 +115,7 @@ The current repository layout is:
 
 ```text
 apps/
+  android/                   Capacitor 8 config, generated Android source, and native asset composition
   web/                       Harness Client plugin graph and responsive web entry
 packages/
   host-web/                  Loopback-restricted /companion static Host plugin
@@ -118,13 +123,15 @@ packages/
   ui-shell/                  Route Registry and responsive Shell
   ui-inbox/                  Inbox derived from Harness SessionListState
   ui-pairing/                Pre-runtime phone pairing page
-  ui-session/                Session header, question, and approval UI
+  ui-session/                Workspace selection, session conversation, input, stop, and interaction UI
   ui-settings/               Pairing offers, device list, revocation, and access management
 scripts/
+  build-android-debug.mjs    Cross-platform Gradle Debug APK launcher
   verify-harness.mjs         Exact checkout and version verification
   start-harness.mjs          Patch generation and dsh web launcher
 docs/
   architecture.md
+  mobile.zh.md
 ```
 
 Prerelease development consumes public packages from a sibling Harness checkout and pins an exact version and commit. Companion no longer owns the Stage 0 connection DTOs, Fixture provider, or Session runtime; keyless tests use the official Harness Fixture.
@@ -147,7 +154,7 @@ Each new Harness capability is complete across its three roles.
 
 | Capability | Service Definition | Providers | Consumers |
 |---|---|---|---|
-| Device trust | Verify a device principal, inspect access, revoke trust | Local digest-backed bearer provider; later native key-bound provider | Connection authentication and authorization |
+| Device trust | Verify a device principal, inspect access, revoke trust | Local provider with browser credential digests and native P-256 public keys | Connection authentication and authorization |
 | Remote carrier | Carry authenticated request/response and downlink envelopes | Direct HTTP/WebSocket; outbound relay | API Gateway and event delivery |
 | Notifications | Deliver a secret-free attention signal to a registered device | Web Push; APNs/FCM adapter; disabled provider | Approval, question, failure, and turn-completion projector |
 
@@ -219,10 +226,10 @@ Session events retain their authoritative sequence numbers. Projection updates r
 2. The page shows a QR code containing the Host origin and random offer id. It contains no reusable device credential.
 3. The phone submits a device label and receives a claim secret plus a six-digit verification code. The claim secret stays only in page memory.
 4. The computer lists the pending claim and approves it after the operator compares the code.
-5. The phone polls with its claim secret. Approval sets a host-only Secure, HttpOnly, SameSite=Strict Cookie and reloads the normal Companion runtime.
+5. The phone polls with its claim secret. A browser claim sets a host-only Secure, HttpOnly, SameSite=Strict Cookie. A native claim stores the submitted P-256 public key and returns no durable bearer.
 6. Offer reuse, expiry, a mismatched claim secret, an invalid credential, and revocation fail closed. A lost poll response can be retried during the offer lifetime.
 
-The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. A future native client that cannot use this Cookie requires a separate key-bound Harness Provider built from maintained cryptographic protocol libraries.
+The same-origin PWA uses standard HTTPS Cookie and WebSocket behavior. The native client signs a versioned single-use Challenge with Android Keystore, keeps the resulting short session in memory, and obtains a one-time `Sec-WebSocket-Protocol` Ticket for each WebSocket. Harness persists only the native public key and current access.
 
 ### 8.2 Access levels
 
@@ -262,7 +269,7 @@ Security rules:
 - Authorization runs on every request using the Connection principal, current device access, and endpoint policy.
 - Push payloads carry only opaque Host, session, and attention identifiers plus a coarse category. The app fetches current state after opening.
 - A notification never contains prompts, tool arguments, diffs, paths, model output, or credentials.
-- The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Native clients later store key-bound credentials in Keychain or Keystore through a platform plugin.
+- The PWA receives an HttpOnly bearer Cookie that application JavaScript cannot read. Android stores a non-exportable P-256 private key in Keystore; derived sessions remain memory-only.
 - Cached transcript data is minimized, encrypted by platform storage where retained, and safe to discard.
 - Settings and credentials require owner access; Host-native dialogs and document-opening actions remain local-only.
 
@@ -271,7 +278,7 @@ Security rules:
 Harness is authoritative for all product state. Companion may persist:
 
 - Paired Host descriptors and public identity fingerprints.
-- Native device identity in secure storage when the native key-bound Provider exists. The current PWA stores no authentication secret through application code.
+- Native device identity in platform secure storage. The Android app persists only its Keystore key and non-secret Host origin, device id, and label; the PWA stores no authentication secret through application code.
 - Non-secret UI preferences.
 - Bounded encrypted presentation cache and last acknowledged resume cursor.
 - Pending local drafts and unsent operations with idempotency keys.
@@ -284,16 +291,17 @@ When foregrounded after suspension, the app treats its connection as lost, reaut
 
 ### 11.1 Primary navigation
 
-The first release has three top-level destinations:
+The first release has three top-level destinations and opens Sessions from the root path:
 
-- Inbox: approvals, questions, plan reviews, failures, and newly completed sessions across paired Hosts.
 - Sessions: grouped Host/session list with running, idle, failed, and needs-attention states.
+- Inbox: approvals, questions, plan reviews, failures, and newly completed sessions across paired Hosts.
 - Settings: Host pairing, device trust, notifications, appearance, and diagnostics. It does not expose Harness model credentials or plugin configuration.
 
 ### 11.2 Session screen
 
 The session screen contains:
 
+- An owner entry that creates or reuses a blank Session in a Host-registered Workspace.
 - Compact Host, workspace, session, model, and permission context.
 - Streaming conversation and structured tool presentation.
 - A composer that supports submit, queue, and steer according to current Agent state.
@@ -301,7 +309,9 @@ The session screen contains:
 - Inline approval, question, and plan-review composers.
 - A later review tab for bounded diffs and produced files.
 
-The layout uses one primary pane on phones. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
+The layout uses one primary pane on phones. Session detail hides the global brand bar and bottom navigation, leaving a compact conversation header, a transcript that fills the remaining height, and a bottom composer; returning to the Session list restores the three top-level destinations. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
+
+The conversation renderer follows the Harness Web client's semantic hierarchy: user input is literal text in a right-aligned bubble, assistant prose uses the shared `ui-primitives` Markdown renderer, and reasoning and tool activity use compact expandable trajectory rows. A completed tool call appears once with its authoritative result. The unified composer exposes only assembled capabilities; its visual similarity to the Web client does not imply attachments, model switching, or permission switching.
 
 The single-pane Session places pending approvals, questions, and plan reviews before conversation history, so mutating actions do not depend on the history scroller's position.
 
@@ -354,13 +364,22 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Every legacy API and RPC channel declares viewer, owner, or local-only access; unclassified and Host-native actions remain local-only.
 - Access replacement and revocation terminate active requests and downlinks.
 
-### Phase 2: installable and native surfaces
+### Phase 2a: installable PWA and Android packaging (implemented)
+
+- Manifest, home-screen icons, and a Companion-scoped Service Worker with a bounded static precache.
+- One Vite graph with Host-served and relative-path native build targets.
+- Capacitor 8 Android source, branded adaptive icons and splash screens, sync, Android Studio, and Debug APK commands.
+- Fail-closed native entry that starts no Harness transport before key-bound native authentication succeeds.
+- Mobile browser coverage for install metadata, cache scope, current workflows, and the native entry at 390x844.
+
+### Phase 2b: native connection and platform features (partially implemented)
 
 - Official-client mobile layout plugin that reuses Harness Runtime, components, routes, and extension slots.
-- Service worker and bounded static-asset cache for the PWA.
 - Web Push where the deployment supports it.
-- Capacitor iOS and Android packaging.
-- Keychain/Keystore, QR scanner, native push, camera attachment, deep links, and share target.
+- Capacitor iOS packaging.
+- Android Keystore identity, signed challenge authentication, native HTTP, one-time WebSocket tickets, and shared Companion Runtime are implemented.
+- A native owner can choose a Host-registered Workspace, enter the blank Session that the Host creates or reuses, send its first prompt, and stop a running turn; viewer, disconnected, and no-Workspace states remain non-mutating.
+- QR scanner, native push, camera attachment, deep links, share target, and iOS Keychain remain pending.
 - Signed static client plugin catalog and compatibility fallback.
 
 ### Phase 3: optional relay
