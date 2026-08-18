@@ -84,6 +84,8 @@ adb install -r "D:\dsh-companion\apps\android\android\app\build\outputs\apk\debu
 
 批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion 收件箱、Session 与设置页。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启会使短会话失效，但不会删除设备记录；App 重新连接时会再次签名。撤销设备或在 App 中重置连接后必须重新配对。
 
+Owner 在底部打开“Session”，点击右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；输入第一条任务并点击“排队发送”即可开始模型对话，运行期间可以选择“停止生成”。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。
+
 APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私钥交给 JavaScript。不要把 Capacitor `server.url` 指向 Tailscale Origin，不要放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie，也不要把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
 
 ## 5. 原生扩展点
@@ -131,4 +133,4 @@ pnpm android:sync
 pnpm android:apk
 ```
 
-`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、现有配对与 Session 流程、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连与设置页权限显示。
+`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、配对、Workspace Session 创建、首条消息、停止运行、失败与空状态、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连、创建 Session、真实模型对话与设置页权限显示。

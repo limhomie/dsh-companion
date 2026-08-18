@@ -4,7 +4,7 @@
 
 状态：架构基线；Viewer／Owner 访问、可安装 PWA 与 Android 打包已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)和[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)、[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)和[原生新建 Session 决策](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md)共同记录。
 
 ## 1. 目标
 
@@ -123,7 +123,7 @@ packages/
   ui-shell/                  Route Registry 与响应式 Shell
   ui-inbox/                  从 Harness SessionListState 派生的收件箱
   ui-pairing/                Runtime 启动前的手机配对页
-  ui-session/                Session Header、问题与审批界面
+  ui-session/                Workspace 选择、Session 对话、输入、停止与 Interaction 界面
   ui-settings/               配对 Offer、设备列表、撤销与访问级别管理
 scripts/
   build-android-debug.mjs    跨平台 Gradle Debug APK 启动脚本
@@ -302,6 +302,7 @@ Companion 不保存模型 Credential、Host Settings 文档、默认权限、完
 
 Session 页面包含：
 
+- 从 Host 已注册 Workspace 创建或复用空白 Session 的 Owner 入口。
 - 紧凑展示的 Host、Workspace、Session、Model 和权限上下文。
 - 流式 Conversation 和结构化 Tool 展示。
 - 根据当前 Agent 状态支持提交、排队和中途追加指令的输入区。
@@ -376,6 +377,7 @@ Session 页面包含：
 - 部署环境支持时启用 Web Push。
 - 使用 Capacitor 打包 iOS。
 - Android Keystore 身份、签名 Challenge 认证、原生 HTTP、一次性 WebSocket Ticket 与共享 Companion Runtime 已实现。
+- 原生 Owner 可以选择 Host 已注册 Workspace、进入 Host 创建或复用的空白 Session、发送第一条消息并停止运行；Viewer、断线和无 Workspace 状态保持不可修改。
 - 二维码扫描器、原生推送、相机附件、深层链接、系统分享入口与 iOS Keychain 尚未实现。
 - 签名静态客户端插件目录和兼容性降级。
 

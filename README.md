@@ -20,6 +20,7 @@ The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies 
 - Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
 - Publishes an installable manifest, home-screen icons, and a Service Worker that precaches only versioned static assets; `/companion/?install=1` gives viewers and owners a stable installation entry that does not start Harness, and API and WebSocket data are never cached.
 - Includes a Capacitor 8 Android project that reuses the same React/Vite entry and remains outside Harness until native device identity exists.
+- Lets a native owner choose an existing Host workspace, create or reuse its blank session, send the first prompt, and stop a running turn without copying Harness session state.
 - Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
 See the [architecture](docs/architecture.md), the [Chinese mobile and Android guide](docs/mobile.zh.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [installable PWA and Capacitor decision](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).

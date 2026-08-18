@@ -20,6 +20,7 @@ Harness 后端仍然只监听 `127.0.0.1`。Tailscale Serve 提供私有网络�
 - `dsh-companion-host-web` 插件把构建产物挂载到 Harness 的 `/companion` 前缀，并在非回环 Host 或 Harness 版本不一致时拒绝加载。
 - `/companion/` 提供可安装 Manifest、主屏幕图标和只缓存版本化静态资源的 Service Worker；`/companion/?install=1` 为 Viewer 与 Owner 提供不会启动 Harness 的稳定安装入口，API 与 WebSocket 数据不进入缓存。
 - Capacitor 8 Android 工程复用同一个 React/Vite Entry，并在原生设备身份完成前停在不连接 Harness 的安全状态。
+- 原生 Owner 可以选择 Host 已注册 Workspace、创建或复用空白 Session、发送第一条消息并停止运行，不在手机端复制 Harness Session 状态。
 - 官方 Harness Fixture 驱动的无密钥浏览器测试覆盖 390x844、430x932 和 1280x800。
 
 完整机制见 [架构文档](docs/architecture.zh.md)、[手机安装与 Android 构建](docs/mobile.zh.md)、[可信 Host 同源 PWA 决策](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)和[可安装 PWA 与 Capacitor 决策](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)。工程修改遵循 [AGENTS.md](AGENTS.md) 与 [设计和开发流程](docs/design-workflow.zh.md)。

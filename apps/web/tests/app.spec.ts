@@ -203,6 +203,55 @@ test('handles Harness Fixture questions and approval through the real client run
   expect(pageErrors).toEqual([])
 })
 
+test('starts a Workspace session, sends its first message, and stops the running turn', async ({ page }) => {
+  const pageErrors: Error[] = []
+  page.on('pageerror', error => { pageErrors.push(error) })
+  await page.goto('/companion/sessions?fixture')
+
+  await page.getByRole('button', { name: '新建 Session', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '选择工作区', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: /fixture.*\/tmp\/fixture/ }).click()
+
+  await expect(page).toHaveURL(/\/companion\/sessions\/fx-1\?fixture$/)
+  await expect(page.getByRole('heading', { name: 'fixture', exact: true })).toBeVisible()
+  const prompt = '从手机开始的第一条任务'
+  await page.getByRole('textbox', { name: '排队消息' }).fill(prompt)
+  await page.getByRole('button', { name: '排队发送', exact: true }).click()
+  await expect(page.getByText(prompt, { exact: true })).toBeVisible()
+
+  const stop = page.getByRole('button', { name: '停止生成', exact: true })
+  await expect(stop).toBeVisible()
+  await stop.click()
+  await expect(stop).toHaveCount(0)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+  expect(pageErrors).toEqual([])
+})
+
+test('explains that an empty Host needs a registered Workspace before a conversation can start', async ({ page }) => {
+  await page.goto('/companion/sessions?fixture=empty')
+
+  await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible()
+  await expect(page.getByText('还没有 Session', { exact: true })).toBeVisible()
+  await expect(page.getByText('请先在电脑 Harness 中注册 Workspace', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始对话', exact: true })).toHaveCount(0)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('keeps the Workspace picker open when the Host rejects Session attachment', async ({ page }) => {
+  await page.goto('/companion/sessions?fixture&fixtureAttach=fail')
+
+  await page.getByRole('button', { name: '新建 Session', exact: true }).click()
+  await page.getByRole('button', { name: /fixture.*\/tmp\/fixture/ }).click()
+  await expect(page.getByText('Session 已创建，但未能加入这个 Workspace', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '选择工作区', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /fixture.*\/tmp\/fixture/ })).toBeEnabled()
+  await expect(page).toHaveURL(/\/companion\/sessions\?fixture&fixtureAttach=fail$/)
+})
+
 test('shows the exact Host and local-only trust context', async ({ page }) => {
   await page.goto('/companion/settings?fixture')
   await expect(page.getByRole('heading', { name: '设置', exact: true })).toBeVisible()

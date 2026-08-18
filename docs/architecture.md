@@ -4,7 +4,7 @@ English | [中文](architecture.zh.md)
 
 Status: architecture baseline; viewer/owner access, installable PWA, and Android packaging implemented
 
-Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), and [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md).
+Engineering rules and the pre-code design procedure live in [AGENTS.md](../AGENTS.md) and the current [Chinese design workflow](design-workflow.zh.md). The visual slice is recorded in the [attention-centered mobile workflow decision](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md); the trusted phone path is covered by the [Host-served PWA decision](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), [trusted interaction answering decision](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md), [trusted session queue-input decision](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md), [official owner-client decision](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md), [installable PWA and Capacitor decision](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), and [native new-session decision](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md).
 
 ## 1. Purpose
 
@@ -123,7 +123,7 @@ packages/
   ui-shell/                  Route Registry and responsive Shell
   ui-inbox/                  Inbox derived from Harness SessionListState
   ui-pairing/                Pre-runtime phone pairing page
-  ui-session/                Session header, question, and approval UI
+  ui-session/                Workspace selection, session conversation, input, stop, and interaction UI
   ui-settings/               Pairing offers, device list, revocation, and access management
 scripts/
   build-android-debug.mjs    Cross-platform Gradle Debug APK launcher
@@ -301,6 +301,7 @@ The first release has three top-level destinations:
 
 The session screen contains:
 
+- An owner entry that creates or reuses a blank Session in a Host-registered Workspace.
 - Compact Host, workspace, session, model, and permission context.
 - Streaming conversation and structured tool presentation.
 - A composer that supports submit, queue, and steer according to current Agent state.
@@ -375,6 +376,7 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Web Push where the deployment supports it.
 - Capacitor iOS packaging.
 - Android Keystore identity, signed challenge authentication, native HTTP, one-time WebSocket tickets, and shared Companion Runtime are implemented.
+- A native owner can choose a Host-registered Workspace, enter the blank Session that the Host creates or reuses, send its first prompt, and stop a running turn; viewer, disconnected, and no-Workspace states remain non-mutating.
 - QR scanner, native push, camera attachment, deep links, share target, and iOS Keychain remain pending.
 - Signed static client plugin catalog and compatibility fallback.
 
