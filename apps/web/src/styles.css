@@ -2638,8 +2638,7 @@ h2 {
     bottom: 0;
     left: 0;
     display: flex;
-    width: min(86vw, 360px);
-    min-width: 280px;
+    width: var(--mobile-drawer-width);
     min-height: 0;
     flex-direction: column;
     padding: max(12px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
@@ -2720,8 +2719,10 @@ h2 {
   }
 
   .app-frame {
+    --mobile-drawer-width: max(280px, min(86vw, 360px));
     height: 100dvh;
     min-height: 0;
+    overflow: hidden;
   }
 
   .app-column {
@@ -2730,7 +2731,19 @@ h2 {
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
+    transform: translateX(0);
+    transition: transform 180ms ease;
     touch-action: pan-y;
+    will-change: transform;
+  }
+
+  .app-frame[data-drawer-open="true"] .app-column {
+    transform: translateX(var(--mobile-drawer-width));
+  }
+
+  .app-frame[data-drawer-dragging="true"] .app-column {
+    transform: translateX(var(--drawer-drag-offset, 0px));
+    transition: none;
   }
 
   .mobile-topbar,

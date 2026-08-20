@@ -155,11 +155,12 @@ test('opens the Session workspace from the Companion root', async ({ page }) => 
   await expect(navigation.locator(`[data-session-id="${routeId}"]`)).toHaveAttribute('aria-current', 'page')
 })
 
-test('opens and closes the mobile Session drawer with gestures and keeps settings at the bottom', async ({ page }) => {
+test('moves both mobile surfaces with slow drags and commits short flicks', async ({ page }) => {
   test.skip(!mobileProject(), 'mobile drawer behavior')
   await page.goto('/companion/sessions/fx-alpha?fixture')
 
   const drawer = page.locator('#mobile-session-drawer')
+  const content = page.locator('.app-column')
   await expect(drawer).toHaveAttribute('data-open', 'false')
   await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>('.app-column')
@@ -177,10 +178,23 @@ test('opens and closes the mobile Session drawer with gestures and keeps setting
   })
   expect(partialOpening.right).toBeGreaterThan(40)
   expect(partialOpening.right).toBeLessThan(partialOpening.width / 2)
+  const partialContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(Math.abs(partialContentLeft - partialOpening.right)).toBeLessThan(2)
   await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>('.app-column')
     if (target === null) throw new Error('missing app column')
-    const end = new Touch({ identifier: 1, target, clientX: 260, clientY: 262 })
+    const move = new Touch({ identifier: 1, target, clientX: 220, clientY: 262 })
+    target.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [move] }))
+  })
+  const restoredOpening = await drawer.evaluate(element => element.getBoundingClientRect().right)
+  const restoredContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(restoredOpening).toBeLessThan(partialOpening.right)
+  expect(Math.abs(restoredContentLeft - restoredOpening)).toBeLessThan(2)
+  await page.waitForTimeout(320)
+  await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>('.app-column')
+    if (target === null) throw new Error('missing app column')
+    const end = new Touch({ identifier: 1, target, clientX: 220, clientY: 262 })
     target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end] }))
   })
   await expect(drawer).toHaveAttribute('data-dragging', 'false')
@@ -202,6 +216,8 @@ test('opens and closes the mobile Session drawer with gestures and keeps setting
   })
   expect(committedOpening.right).toBeGreaterThan(committedOpening.width / 2)
   expect(committedOpening.right).toBeLessThan(committedOpening.width)
+  const committedContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(Math.abs(committedContentLeft - committedOpening.right)).toBeLessThan(2)
   await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>('.app-column')
     if (target === null) throw new Error('missing app column')
@@ -236,8 +252,19 @@ test('opens and closes the mobile Session drawer with gestures and keeps setting
   })
   expect(partialClosing.right).toBeGreaterThan(partialClosing.width / 2)
   expect(partialClosing.right).toBeLessThan(partialClosing.width)
+  const partialClosingContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(Math.abs(partialClosingContentLeft - partialClosing.right)).toBeLessThan(2)
   await drawer.evaluate(element => {
-    const end = new Touch({ identifier: 3, target: element, clientX: 170, clientY: 282 })
+    const move = new Touch({ identifier: 3, target: element, clientX: 220, clientY: 282 })
+    element.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [move] }))
+  })
+  const restoredClosing = await drawer.evaluate(element => element.getBoundingClientRect().right)
+  const restoredClosingContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(restoredClosing).toBeGreaterThan(partialClosing.right)
+  expect(Math.abs(restoredClosingContentLeft - restoredClosing)).toBeLessThan(2)
+  await page.waitForTimeout(320)
+  await drawer.evaluate(element => {
+    const end = new Touch({ identifier: 3, target: element, clientX: 220, clientY: 282 })
     element.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end] }))
   })
   await expect(drawer).toHaveAttribute('data-dragging', 'false')
@@ -256,6 +283,8 @@ test('opens and closes the mobile Session drawer with gestures and keeps setting
   })
   expect(committedClosing.right).toBeGreaterThan(0)
   expect(committedClosing.right).toBeLessThan(committedClosing.width / 2)
+  const committedClosingContentLeft = await content.evaluate(element => element.getBoundingClientRect().left)
+  expect(Math.abs(committedClosingContentLeft - committedClosing.right)).toBeLessThan(2)
   await drawer.evaluate(element => {
     const end = new Touch({ identifier: 4, target: element, clientX: 80, clientY: 282 })
     element.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end] }))
@@ -266,8 +295,28 @@ test('opens and closes the mobile Session drawer with gestures and keeps setting
   await page.evaluate(() => {
     const target = document.querySelector<HTMLElement>('.app-column')
     if (target === null) throw new Error('missing app column')
-    const start = new Touch({ identifier: 5, target, clientX: 190, clientY: 240 })
-    const move = new Touch({ identifier: 5, target, clientX: 205, clientY: 320 })
+    const start = new Touch({ identifier: 5, target, clientX: 180, clientY: 260 })
+    const end = new Touch({ identifier: 5, target, clientX: 220, clientY: 261 })
+    target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [start] }))
+    target.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [end] }))
+    target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end] }))
+  })
+  await expect(drawer).toHaveAttribute('data-open', 'true')
+
+  await drawer.evaluate(element => {
+    const start = new Touch({ identifier: 6, target: element, clientX: 260, clientY: 280 })
+    const end = new Touch({ identifier: 6, target: element, clientX: 220, clientY: 281 })
+    element.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [start] }))
+    element.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [end] }))
+    element.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [end] }))
+  })
+  await expect(drawer).toHaveAttribute('data-open', 'false')
+
+  await page.evaluate(() => {
+    const target = document.querySelector<HTMLElement>('.app-column')
+    if (target === null) throw new Error('missing app column')
+    const start = new Touch({ identifier: 7, target, clientX: 190, clientY: 240 })
+    const move = new Touch({ identifier: 7, target, clientX: 205, clientY: 320 })
     target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [start] }))
     target.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, touches: [move] }))
     target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [move] }))

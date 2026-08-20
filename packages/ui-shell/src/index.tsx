@@ -5,6 +5,13 @@ import type { LucideIcon } from 'lucide-react'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ISessions, SessionId, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
 
+const DRAWER_HORIZONTAL_INTENT_PX = 8
+const DRAWER_VERTICAL_CANCEL_PX = 24
+const DRAWER_DIRECTION_RATIO = 1.25
+const DRAWER_FLICK_MIN_DISTANCE_PX = 28
+const DRAWER_FLICK_MAX_DURATION_MS = 280
+const DRAWER_FLICK_MIN_VELOCITY_PX_PER_MS = 0.25
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     companionUi: UiRegistryService
@@ -264,7 +271,16 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerDragging, setDrawerDragging] = useState(false)
   const frame = useRef<HTMLDivElement>(null)
-  const navigationSwipe = useRef<{ x: number; y: number; width: number; opening: boolean; engaged: boolean; progress: number }>()
+  const navigationSwipe = useRef<{
+    x: number
+    y: number
+    width: number
+    opening: boolean
+    engaged: boolean
+    progress: number
+    signedDistance: number
+    startedAt: number
+  }>()
   const navigate = useCallback((nextPath: string) => {
     const nextUrl = `/companion${nextPath}${window.location.search}`
     setDrawerOpen(false)
@@ -302,7 +318,16 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
     const touch = event.touches[0]
     if (touch !== undefined) {
       const width = Math.max(280, Math.min(window.innerWidth * 0.86, 360))
-      navigationSwipe.current = { x: touch.clientX, y: touch.clientY, width, opening: !drawerOpen, engaged: false, progress: drawerOpen ? 1 : 0 }
+      navigationSwipe.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        width,
+        opening: !drawerOpen,
+        engaged: false,
+        progress: drawerOpen ? 1 : 0,
+        signedDistance: 0,
+        startedAt: performance.now(),
+      }
     }
   }
   const continueNavigationSwipe = (event: TouchEvent<HTMLElement>): void => {
@@ -311,18 +336,20 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
     if (gesture === undefined || touch === undefined) return
     const signedDistance = gesture.opening ? touch.clientX - gesture.x : gesture.x - touch.clientX
     const verticalDistance = Math.abs(touch.clientY - gesture.y)
-    if (verticalDistance > 24 && verticalDistance > Math.abs(signedDistance)) {
+    if (!gesture.engaged && verticalDistance > DRAWER_VERTICAL_CANCEL_PX && verticalDistance > Math.abs(signedDistance)) {
       setDrawerDragging(false)
       navigationSwipe.current = undefined
       return
     }
-    if (signedDistance > 8 && signedDistance > verticalDistance * 1.25) {
+    if (!gesture.engaged && signedDistance > DRAWER_HORIZONTAL_INTENT_PX && signedDistance > verticalDistance * DRAWER_DIRECTION_RATIO) {
       gesture.engaged = true
-      const visibleDistance = gesture.opening ? signedDistance : gesture.width - signedDistance
-      gesture.progress = updateDrawerDrag(visibleDistance / gesture.width, gesture.width)
       setDrawerDragging(true)
-      event.preventDefault()
     }
+    if (!gesture.engaged) return
+    gesture.signedDistance = signedDistance
+    const visibleDistance = gesture.opening ? signedDistance : gesture.width - signedDistance
+    gesture.progress = updateDrawerDrag(visibleDistance / gesture.width, gesture.width)
+    event.preventDefault()
   }
   const finishNavigationSwipe = (event: TouchEvent<HTMLElement>): void => {
     const gesture = navigationSwipe.current
@@ -331,12 +358,22 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
       if (touch !== undefined) {
         const signedDistance = gesture.opening ? touch.clientX - gesture.x : gesture.x - touch.clientX
         const verticalDistance = Math.abs(touch.clientY - gesture.y)
-        if (signedDistance > 8 && signedDistance > verticalDistance * 1.25) {
+        if (gesture.engaged || (signedDistance > DRAWER_HORIZONTAL_INTENT_PX && signedDistance > verticalDistance * DRAWER_DIRECTION_RATIO)) {
+          gesture.engaged = true
+          gesture.signedDistance = signedDistance
           const visibleDistance = gesture.opening ? signedDistance : gesture.width - signedDistance
           gesture.progress = updateDrawerDrag(visibleDistance / gesture.width, gesture.width)
         }
       }
-      if (gesture.engaged) setDrawerOpen(gesture.progress > 0.5)
+      if (gesture.engaged) {
+        const duration = Math.max(performance.now() - gesture.startedAt, 1)
+        const quickFlick = gesture.signedDistance >= DRAWER_FLICK_MIN_DISTANCE_PX
+          && duration <= DRAWER_FLICK_MAX_DURATION_MS
+          && gesture.signedDistance / duration >= DRAWER_FLICK_MIN_VELOCITY_PX_PER_MS
+        setDrawerOpen(gesture.opening
+          ? gesture.progress > 0.5 || quickFlick
+          : gesture.progress > 0.5 && !quickFlick)
+      }
     }
     setDrawerDragging(false)
     navigationSwipe.current = undefined
@@ -351,7 +388,7 @@ export function AppShell({ connection, sessions, ui }: AppShellProps) {
   }, [navigate, path, routes])
 
   return (
-    <div className="app-frame" ref={frame}>
+    <div className="app-frame" data-drawer-dragging={drawerDragging} data-drawer-open={drawerOpen} ref={frame}>
       <aside className="desktop-sidebar">
         <div className="brand-lockup">
           <span className="brand-mark"><PanelsTopLeft aria-hidden="true" size={21} /></span>
