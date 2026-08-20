@@ -1,4 +1,43 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function installSavedAndroidConnection(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis, 'nativeTestCalls', {
+      configurable: true,
+      value: [] as string[],
+    })
+    Object.defineProperty(globalThis, 'androidBridge', {
+      configurable: true,
+      value: {},
+    })
+    Object.defineProperty(globalThis, 'Capacitor', {
+      configurable: true,
+      writable: true,
+      value: {
+        Plugins: {},
+        PluginHeaders: [{
+          name: 'DshDeviceIdentity',
+          methods: ['getIdentity', 'sign', 'loadConnection', 'saveConnection', 'reset']
+            .map(name => ({ name, rtype: 'promise' })),
+        }],
+        nativePromise: async (_pluginName: string, methodName: string) => {
+          const calls = (globalThis as typeof globalThis & { nativeTestCalls: string[] }).nativeTestCalls
+          calls.push(methodName)
+          if (methodName === 'loadConnection') {
+            return {
+              configured: true,
+              origin: 'https://host.example',
+              deviceId: 'device-00000000-0000-4000-8000-000000000001',
+              label: 'Saved Android',
+            }
+          }
+          if (methodName === 'reset') return {}
+          throw new Error(`unexpected native method ${methodName}`)
+        },
+      },
+    })
+  })
+}
 
 test('shows native key-bound pairing before Android has a saved connection', async ({ page }) => {
   const harnessRequests: string[] = []
@@ -44,42 +83,7 @@ test('keeps saved Android pairing while the Host is unreachable', async ({ page 
     challengeRequests.push(route.request().url())
     await route.abort('internetdisconnected')
   })
-  await page.addInitScript(() => {
-    Object.defineProperty(globalThis, 'nativeTestCalls', {
-      configurable: true,
-      value: [] as string[],
-    })
-    Object.defineProperty(globalThis, 'androidBridge', {
-      configurable: true,
-      value: {},
-    })
-    Object.defineProperty(globalThis, 'Capacitor', {
-      configurable: true,
-      writable: true,
-      value: {
-        Plugins: {},
-        PluginHeaders: [{
-          name: 'DshDeviceIdentity',
-          methods: ['getIdentity', 'sign', 'loadConnection', 'saveConnection', 'reset']
-            .map(name => ({ name, rtype: 'promise' })),
-        }],
-        nativePromise: async (_pluginName: string, methodName: string) => {
-          const calls = (globalThis as typeof globalThis & { nativeTestCalls: string[] }).nativeTestCalls
-          calls.push(methodName)
-          if (methodName === 'loadConnection') {
-            return {
-              configured: true,
-              origin: 'https://host.example',
-              deviceId: 'device-00000000-0000-4000-8000-000000000001',
-              label: 'Saved Android',
-            }
-          }
-          if (methodName === 'reset') return {}
-          throw new Error(`unexpected native method ${methodName}`)
-        },
-      },
-    })
-  })
+  await installSavedAndroidConnection(page)
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '无法连接电脑，请检查 Tailscale', exact: true })).toBeVisible()
@@ -105,6 +109,33 @@ test('keeps saved Android pairing while the Host is unreachable', async ({ page 
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { nativeTestCalls: string[] }).nativeTestCalls)).toContain('reset')
 
   await page.setViewportSize({ width: 430, height: 932 })
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
+
+test('explains when the saved Origin serves plain Harness without deleting pairing', async ({ page }) => {
+  const challengeRequests: string[] = []
+  await page.route('https://host.example/**', async route => {
+    challengeRequests.push(route.request().url())
+    await route.fulfill({ status: 404, contentType: 'text/plain', body: 'not found' })
+  })
+  await installSavedAndroidConnection(page)
+
+  await page.goto('/')
+  await expect(page.getByRole('heading', {
+    name: '当前地址没有返回 DSH Companion 认证响应，请在电脑启动 Companion Host，而不是普通 Harness 服务',
+    exact: true,
+  })).toBeVisible()
+  await expect(page.getByText('原配对仍保存在这台手机上', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('配对链接')).toHaveCount(0)
+  await expect.poll(() => challengeRequests.length).toBe(1)
+
+  await page.getByRole('button', { name: '重试连接', exact: true }).click()
+  await expect.poll(() => challengeRequests.length).toBe(2)
+  expect(await page.evaluate(() => (
+    globalThis as typeof globalThis & { nativeTestCalls: string[] }
+  ).nativeTestCalls)).not.toContain('reset')
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })

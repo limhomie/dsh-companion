@@ -232,12 +232,27 @@ importers:
       '@deepseek-ai/dsh-client-runtime':
         specifier: link:../../../deepseek-harness/packages/client/runtime
         version: link:../../../deepseek-harness/packages/client/runtime
+      '@deepseek-ai/dsh-client-ui-agent-preset':
+        specifier: link:../../../deepseek-harness/packages/client/ui-agent-preset
+        version: link:../../../deepseek-harness/packages/client/ui-agent-preset
+      '@deepseek-ai/dsh-client-ui-model-selection':
+        specifier: link:../../../deepseek-harness/packages/client/ui-model-selection
+        version: link:../../../deepseek-harness/packages/client/ui-model-selection
+      '@deepseek-ai/dsh-client-ui-permission-presets':
+        specifier: link:../../../deepseek-harness/packages/client/ui-permission-presets
+        version: link:../../../deepseek-harness/packages/client/ui-permission-presets
       '@deepseek-ai/dsh-client-ui-primitives':
         specifier: link:../../../deepseek-harness/packages/client/ui-primitives
         version: link:../../../deepseek-harness/packages/client/ui-primitives
+      '@deepseek-ai/dsh-commands':
+        specifier: link:../../../deepseek-harness/packages/interaction/commands
+        version: link:../../../deepseek-harness/packages/interaction/commands
       '@deepseek-ai/dsh-llm':
         specifier: link:../../../deepseek-harness/packages/llm/llm
         version: link:../../../deepseek-harness/packages/llm/llm
+      '@deepseek-ai/dsh-permission-presets':
+        specifier: link:../../../deepseek-harness/packages/interaction/permission-presets
+        version: link:../../../deepseek-harness/packages/interaction/permission-presets
       '@deepseek-ai/dsh-user-questions':
         specifier: link:../../../deepseek-harness/packages/interaction/user-questions
         version: link:../../../deepseek-harness/packages/interaction/user-questions

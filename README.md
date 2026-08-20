@@ -55,6 +55,12 @@ pnpm host
 
 Open [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/). It reads sessions from that `dsh web` process; the existing Harness app remains at `/`.
 
+On Windows, copy `companion.local.example.psd1` to the ignored `companion.local.psd1`, set `DshHome` and `PublicOrigin`, then double-click `start-companion.cmd`. The launcher validates the local configuration, reuses an already-running Companion Host, blocks duplicate startup, and otherwise runs the same `pnpm host` path. If plain `dsh web` or another service owns port 3080, stop it before launching Companion. Keep `DshHome` stable across restarts: durable paired-device records live under that directory, while native challenges and transport sessions are intentionally recreated in memory. No external database is required for one computer. Validate without starting the service with:
+
+```powershell
+.\start-companion.ps1 -ValidateOnly
+```
+
 ## Trusted phone connection
 
 Install Tailscale on the computer and phone, sign both into the same tailnet, and keep Harness stopped while discovering the private HTTPS address. In an Administrator PowerShell on Windows, from the Companion checkout run:
