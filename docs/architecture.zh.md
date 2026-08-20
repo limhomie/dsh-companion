@@ -127,6 +127,7 @@ packages/
   ui-settings/               配对 Offer、设备列表、撤销与访问级别管理
 scripts/
   build-android-debug.mjs    跨平台 Gradle Debug APK 启动脚本
+  build-android-release.mjs  已签名 Universal APK 与 SHA-256 产物脚本
   verify-harness.mjs         精确 checkout 与版本校验
   start-harness.mjs          生成 patch 并启动 dsh web
 docs/

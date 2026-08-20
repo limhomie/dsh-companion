@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystorePath = System.getenv('DSH_ANDROID_KEYSTORE_FILE')
+def releaseKeystorePassword = System.getenv('DSH_ANDROID_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('DSH_ANDROID_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('DSH_ANDROID_KEY_PASSWORD')
+def releaseSigningConfigured = [
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+].every { value -> value != null && !value.isBlank() }
+def releaseTaskRequested = gradle.startParameter.taskNames.any { name -> name.toLowerCase().contains('release') }
+
 android {
     namespace = "ai.deepseek.dsh.companion"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -8,7 +20,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "0.0.0"
+        versionName "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,12 +28,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+if (releaseTaskRequested && !releaseSigningConfigured) {
+    throw new GradleException('Release signing requires DSH_ANDROID_KEYSTORE_FILE, DSH_ANDROID_KEYSTORE_PASSWORD, DSH_ANDROID_KEY_ALIAS, and DSH_ANDROID_KEY_PASSWORD.')
 }
 
 repositories {

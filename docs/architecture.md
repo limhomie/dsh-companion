@@ -127,6 +127,7 @@ packages/
   ui-settings/               Pairing offers, device list, revocation, and access management
 scripts/
   build-android-debug.mjs    Cross-platform Gradle Debug APK launcher
+  build-android-release.mjs  Signed universal APK and SHA-256 artifact launcher
   verify-harness.mjs         Exact checkout and version verification
   start-harness.mjs          Patch generation and dsh web launcher
 docs/

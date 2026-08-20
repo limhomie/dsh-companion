@@ -14,11 +14,11 @@ Host-served Web 构建在 `/companion/` 下发布 Web App Manifest、带图像 M
 
 Android 只持久化 Host Origin、设备 id 和名称等非敏感连接信息；P-256 私钥保持在 Android Keystore 且不可导出。Harness 持久设备记录只保存对应公钥。浏览器 Cookie、Harness Credential、模型 Credential、原生短会话和 WebSocket Ticket 都不会写入手机持久存储。重置原生连接会删除 Keystore 密钥并要求重新配对。
 
-Android 工程是可提交的源文件。根脚本提供 Web 资源构建、`cap sync android`、Android Studio 打开和 Gradle Debug APK 构建；Debug APK 使用 Android 自动生成的调试签名，仅供本地验证。
+Android 工程是可提交的源文件。根脚本提供 Web 资源构建、`cap sync android`、Android Studio 打开、Gradle Debug APK 与已签名 Release APK 构建；Debug APK 使用 Android 自动生成的调试签名，仅供本地验证。Release 构建只从环境变量读取 Keystore 路径、密码和 Alias；缺少任何一项时安全失败。签名后的单一 Universal APK 与 SHA-256 摘要输出到已忽略的 `dist/releases/android-v{version}/`。
 
 当前首次连接通过粘贴完整配对链接完成；相机扫码、通知、应用生命周期与后台重连分别保留 Capacitor 平台 Provider 扩展点。功能插件继续只依赖 Companion/Harness 能力接口，不直接导入 Capacitor API。APK 下载入口由 GitHub Release 资产提供，不由 Harness Host 动态下发可执行代码。
 
-GitHub Actions 暂不加入仓库。当前 Companion 构建精确锁定 Harness 的本地提交 `2a8d995b4b43a4f308143a40ed1fcf9e633aac47`，远端 Runner 无法检出该提交；仓库也没有 Android Release 签名密钥约定。发布流程在该提交可由 Runner 获取并建立仓库级密钥策略后启用：Pull Request 构建 Debug APK，版本 Tag 构建签名 Release APK，把 APK 与 SHA-256 摘要发布到 GitHub Releases。Keystore 以 Base64 GitHub Actions Secret 注入临时目录，密码和 Alias 使用独立 Secret，任务结束后不上传 Keystore 或 Gradle 签名配置。
+GitHub Actions 暂不加入仓库。当前 Companion 构建精确锁定 Harness 的本地提交 `f652a3263943a26ebfa3f0945230c1f40884637d`，远端 Runner 无法检出该提交。首个 Android 版本由本机受保护的 Keystore 签名，并手动上传 APK 与 SHA-256 到 GitHub Pre-release。该提交可由 Runner 获取后，自动发布使用受保护的 GitHub Environment：Pull Request 构建 Debug APK，版本 Tag 构建签名 Release APK，把 APK 与 SHA-256 摘要发布到 GitHub Releases。Keystore 以 Base64 GitHub Actions Secret 注入临时目录，密码和 Alias 使用独立 Secret，任务结束后不上传 Keystore 或 Gradle 签名配置。
 
 ## Alternatives considered
 
@@ -36,11 +36,12 @@ GitHub Actions 暂不加入仓库。当前 Companion 构建精确锁定 Harness 
 - Native Vite 构建检查相对资源路径和未配对输入状态；`cap sync android` 证明同一产物可以复制到官方 Android 工程。
 - Harness 聚焦测试使用真实 P-256 签名覆盖公钥配对、单次 Challenge、短会话和一次性 WebSocket Ticket；Android 真机完成配对批准、Viewer 连接、Owner 权限替换及自动重连。
 - 安装 Android SDK 的环境运行 Gradle `assembleDebug` 并输出 Debug APK；缺少 SDK 的环境只执行 Web 构建与 Capacitor 同步，并报告环境缺口。
+- Release 构建在签名配置不完整时拒绝产物；配置完整时生成签名 Universal APK 和可独立校验的 SHA-256 摘要。
 
 ## Consequences
 
 - 浏览器 PWA 是当前可连接、配对和控制 Harness 的安装路径。
 - Viewer 与 Owner 都从 `/companion/?install=1` 安装同一个 PWA；安装后 Owner 仍由 `/companion/` 转交到官方 Harness 客户端。
-- Android 工程已经可同步和构建；APK 通过原生密钥绑定认证连接真实 Harness Runtime，未配对时不发送 Session 请求。
+- Android 工程已经可同步和构建；Debug 与正式签名使用不同证书，首次切换需要卸载 Debug 版并重新配对，后续正式版使用同一 Keystore 覆盖升级。APK 通过原生密钥绑定认证连接真实 Harness Runtime，未配对时不发送 Session 请求。
 - PWA 离线时只能打开已缓存的静态界面；Session、配对、授权和操作始终需要在线 Host，Service Worker 不返回缓存的敏感 API 数据。
 - Harness 和模型 Credential 始终留在电脑。原生设备身份独立、可撤销且绑定 Android Keystore 密钥；派生的传输会话短时且仅存于内存。
