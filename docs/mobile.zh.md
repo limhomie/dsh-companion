@@ -78,6 +78,18 @@ pnpm android:apk
 
 输出位于 `apps/android/android/app/build/outputs/apk/debug/app-debug.apk`。Debug APK 只用于本机安装与打包验证，不能作为 GitHub Release 或长期升级通道。
 
+本地正式构建从环境变量读取签名，不在仓库保存 Keystore 或密码：
+
+```powershell
+$env:DSH_ANDROID_KEYSTORE_FILE='C:\secure\dsh-companion-release.p12'
+$env:DSH_ANDROID_KEYSTORE_PASSWORD='<keystore password>'
+$env:DSH_ANDROID_KEY_ALIAS='dsh-companion'
+$env:DSH_ANDROID_KEY_PASSWORD='<key password>'
+pnpm android:release
+```
+
+缺少任何一项签名变量时构建会立即失败。成功后输出 `dist/releases/android-v0.1.0/dsh-companion-0.1.0-universal.apk` 和同名 `.sha256` 文件。发布后的每个版本必须继续使用同一个 Keystore，并递增 `versionCode`，否则 Android 无法覆盖升级。
+
 ## 4. 安装、配对并使用 APK
 
 电脑连着手机且已开启 USB 调试与“USB 安装”后，在电脑 PowerShell 运行：
@@ -118,9 +130,9 @@ APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私�
 
 ## 6. GitHub Actions 与 Releases 路径
 
-仓库当前没有 Release、Android Workflow 或签名 Secret 约定，而且 Companion 精确锁定的 Harness 提交 `f652a3263943a26ebfa3f0945230c1f40884637d` 只存在本地。GitHub Runner 无法检出这个提交，因此当前不加入必然失败的 Workflow。
+首个 Android 版本使用本机受保护的 Keystore 签名，手动上传 Universal APK 与 SHA-256 到 GitHub Pre-release。仓库当前仍没有 Android Workflow，而且 Companion 精确锁定的 Harness 提交 `f652a3263943a26ebfa3f0945230c1f40884637d` 只存在本地。GitHub Runner 无法检出这个提交，因此当前不加入必然失败的 Workflow。
 
-满足以下条件后启用发布：
+满足以下条件后将手动发布升级为自动发布：
 
 1. 精确锁定的 Harness 提交可由 GitHub Runner 检出，或 Companion 改为消费已发布且带完整客户端入口的 Harness Package。
 2. 建立受保护的 `android-release` GitHub Environment，并要求 Release 审核。

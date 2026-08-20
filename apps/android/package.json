@@ -1,10 +1,11 @@
 {
   "name": "@dsh-companion/android",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "apk:debug": "pnpm run sync && node ../../scripts/build-android-debug.mjs",
+    "apk:release": "pnpm run sync && node ../../scripts/build-android-release.mjs",
     "build:web": "pnpm --filter @dsh-companion/web build:native",
     "generate:assets": "capacitor-assets generate --android --assetPath ../web/public --androidProject android --iconBackgroundColor \"#f5f6f4\" --iconBackgroundColorDark \"#20231f\" --splashBackgroundColor \"#f5f6f4\" --splashBackgroundColorDark \"#20231f\"",
     "open": "cap open android",

@@ -1,6 +1,6 @@
 {
   "name": "dsh-companion",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
@@ -10,6 +10,7 @@
   "scripts": {
     "android:apk": "pnpm run verify:harness && pnpm --filter @dsh-companion/android apk:debug",
     "android:open": "pnpm --filter @dsh-companion/android open",
+    "android:release": "pnpm run verify:harness && pnpm --filter @dsh-companion/android apk:release",
     "android:sync": "pnpm run verify:harness && pnpm --filter @dsh-companion/android sync",
     "build": "pnpm run verify:harness && pnpm --filter @dsh-companion/web build",
     "build:native": "pnpm run verify:harness && pnpm --filter @dsh-companion/web build:native",
