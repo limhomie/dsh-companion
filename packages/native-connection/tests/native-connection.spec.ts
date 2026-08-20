@@ -13,7 +13,16 @@ vi.mock('@deepseek-ai/dsh-device-trust', () => ({
   ),
 }))
 vi.mock('@dsh-companion/device-trust-web', () => ({
-  DeviceTrustClientError: class extends Error {},
+  DeviceTrustClientError: class extends Error {
+    constructor(
+      readonly kind: string,
+      message: string,
+      readonly status?: number,
+      readonly code?: string,
+    ) {
+      super(message)
+    }
+  },
 }))
 
 import {
@@ -44,6 +53,43 @@ afterEach(() => {
 })
 
 describe('NativeConnectionClient', () => {
+  it.each([
+    {
+      name: 'a plain Harness route',
+      response: () => new Response('not found', {
+        status: 404,
+        headers: { 'content-type': 'text/plain' },
+      }),
+      expected: {
+        kind: 'invalid-response',
+        status: 404,
+        message: '当前地址没有返回 DSH Companion 认证响应，请在电脑启动 Companion Host，而不是普通 Harness 服务',
+      },
+    },
+    {
+      name: 'an unavailable reverse proxy',
+      response: () => new Response('bad gateway', {
+        status: 503,
+        headers: { 'content-type': 'text/plain' },
+      }),
+      expected: {
+        kind: 'network',
+        status: 503,
+        message: '电脑端 Companion Host 暂时不可达，请确认服务和 Tailscale 后重试',
+      },
+    },
+  ])('keeps the saved identity when authentication reaches $name', async ({ response, expected }) => {
+    const platform = identity()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response())))
+
+    const client = new NativeConnectionClient(platform)
+    await client.loadBinding()
+
+    await expect(client.authenticate()).rejects.toMatchObject(expected)
+    expect(platform.reset).not.toHaveBeenCalled()
+    expect(platform.saveConnection).not.toHaveBeenCalled()
+  })
+
   it('renews an expired memory session and retries the rejected request once', async () => {
     const platform = identity()
     const credentials = ['first-session-credential-that-is-long-enough', 'second-session-credential-that-is-long-enough']

@@ -4,7 +4,7 @@
 
 状态：架构基线；Viewer／Owner 访问、可安装 PWA 与 Android 打包已实现
 
-工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)和[对话优先移动界面决策](../.agents/notes/implemented/feature/2026-08-18-conversation-first-mobile-ui.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)、[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)、[原生新建 Session 决策](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md)和[原生断线恢复决策](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md)共同记录。
+工程规则与编码前设计步骤分别由 [AGENTS.md](../AGENTS.md) 和 [设计与开发流程](design-workflow.zh.md) 持有。视觉切片见 [待处理事项移动工作流决策](../.agents/notes/implemented/feature/2026-08-15-attention-workflow-first-slice.md)、[对话优先移动界面决策](../.agents/notes/implemented/feature/2026-08-18-conversation-first-mobile-ui.md)和[Host 同步 Session 控件决策](../.agents/notes/implemented/feature/2026-08-19-host-synchronized-session-controls.md)；可信手机路径由 [Host 同源 PWA 决策](../.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md)、[可信 Interaction 应答决策](../.agents/notes/implemented/feature/2026-08-16-trusted-interaction-answering.md)、[可信 Session 排队输入决策](../.agents/notes/implemented/feature/2026-08-16-trusted-session-prompt.md)、[Owner 官方客户端转交决策](../.agents/notes/implemented/architecture/2026-08-16-official-owner-client.md)、[可安装 PWA 与 Capacitor 决策](../.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md)、[原生新建 Session 决策](../.agents/notes/implemented/feature/2026-08-18-native-new-session-conversation.md)和[原生断线恢复决策](../.agents/notes/implemented/bug-fix/2026-08-18-native-offline-retry-preserves-pairing.md)共同记录。
 
 ## 1. 目标
 
@@ -120,7 +120,7 @@ apps/
 packages/
   host-web/                  回环限制的 /companion 静态资源 Host 插件
   device-trust-web/          不依赖 React 的配对 HTTP 客户端与 Cordis Service
-  ui-shell/                  Route Registry 与响应式 Shell
+  ui-shell/                  Route Registry、Session 侧栏与响应式抽屉 Shell
   ui-inbox/                  从 Harness SessionListState 派生的收件箱
   ui-pairing/                Runtime 启动前的手机配对页
   ui-session/                Workspace 选择、Session 对话、输入、停止与 Interaction 界面
@@ -312,9 +312,9 @@ Session 页面包含：
 
 手机布局只使用一个主面板。Session 详情隐藏全局品牌栏和底部导航，由紧凑会话顶栏、占满剩余高度的 Conversation 和底部常驻输入区组成；返回 Session 列表后恢复三个顶层入口。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
 
-Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输入作为字面文本显示在右侧气泡中，Agent 正文使用共享 `ui-primitives` Markdown Renderer，Reasoning 与 Tool 活动使用紧凑的可展开轨迹行。已完成 Tool 调用只与权威结果一起显示一次。一体化 Composer 只展示已经组装的能力；视觉接近网页版不代表已经支持附件、模型切换或权限切换。
+Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输入作为字面文本显示在右侧气泡中，Agent 正文使用共享 `ui-primitives` Markdown Renderer，Reasoning 与 Tool 活动使用紧凑的可展开轨迹行。已完成 Tool 调用只与权威结果一起显示一次。一体化 Composer 从 Host 动态加载命令、权限 Projection、模型目录与模型提供的推理强度，并通过 Harness 既有命令或 Session API 写回；其他电脑或手机客户端重新读取相同 Host 状态。附件仍未接入。
 
-单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之前，使修改操作不依赖历史记录的内层滚动位置。
+单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之后、Composer 之前，使手机上的确认操作靠近输入区，同时保持历史记录独立滚动。
 
 ### 11.3 未知功能
 

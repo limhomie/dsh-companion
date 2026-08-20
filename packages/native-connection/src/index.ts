@@ -55,6 +55,8 @@ interface Parser<T> {
   safeParse(value: unknown): { success: true; data: T } | { success: false }
 }
 
+const TEMPORARY_GATEWAY_STATUSES = new Set([502, 503, 504])
+
 /** Validated durable connection facts that contain no reusable credential. */
 export interface NativeConnectionBinding {
   readonly origin: string
@@ -85,7 +87,18 @@ async function parseJson<T>(response: Response, parser: Parser<T>): Promise<T> {
   try {
     body = await response.json() as unknown
   } catch {
-    throw new DeviceTrustClientError('invalid-response', 'Harness 返回了无法解析的响应', response.status)
+    if (TEMPORARY_GATEWAY_STATUSES.has(response.status)) {
+      throw new DeviceTrustClientError(
+        'network',
+        '电脑端 Companion Host 暂时不可达，请确认服务和 Tailscale 后重试',
+        response.status,
+      )
+    }
+    throw new DeviceTrustClientError(
+      'invalid-response',
+      '当前地址没有返回 DSH Companion 认证响应，请在电脑启动 Companion Host，而不是普通 Harness 服务',
+      response.status,
+    )
   }
   if (!response.ok) {
     const error = devicePairingErrorSchema.safeParse(body)

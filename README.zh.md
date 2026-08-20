@@ -55,6 +55,12 @@ pnpm host
 
 打开 [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/)。该页面读取同一 `dsh web` 进程中的真实 Session；Harness 原有页面仍位于根路径 `/`。
 
+Windows 日常启动时，把 `companion.local.example.psd1` 复制为 Git 忽略的 `companion.local.psd1`，填写 `DshHome` 与 `PublicOrigin`，以后直接双击 `start-companion.cmd`。启动器会复用已经运行的 Companion Host，并阻止重复启动；如果普通 `dsh web` 或其他服务占用 3080，先停止它再启动 Companion。重启时保持同一个 `DshHome`：持久设备记录位于该目录，原生 Challenge 和短会话则按设计在内存中重建，单台电脑不需要外部数据库。只验证配置时运行：
+
+```powershell
+.\start-companion.ps1 -ValidateOnly
+```
+
 ## 手机可信连接
 
 在电脑和手机上安装 Tailscale，并让两台设备登录同一个 Tailnet。先保持 Harness 停止，在 Windows 管理员 PowerShell 中进入 Companion 目录并运行：

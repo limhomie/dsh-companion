@@ -20,6 +20,14 @@ $env:DSH_COMPANION_PUBLIC_ORIGIN = 'https://computer-name.tailnet-name.ts.net'
 pnpm host
 ```
 
+Windows 一键启动时，把 `companion.local.example.psd1` 复制为 Git 忽略的 `companion.local.psd1`，填写同样的 `DshHome` 与 `PublicOrigin`，以后直接双击仓库根目录的 `start-companion.cmd`。启动器会验证本机配置；如果 3080 上已经是 DSH Companion，则直接报告现有服务，不会重复启动；连续双击也只允许一个启动过程。如果 3080 被普通 `dsh web` 或另一项服务占用，必须先停止该服务再运行启动器。排查配置但不启动服务时运行：
+
+```powershell
+.\start-companion.ps1 -ValidateOnly
+```
+
+Tailscale Serve 的管理员命令仍然只需首次配置或 Serve 被关闭后执行，不放进日常启动脚本。
+
 电脑入口是 [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/)，手机入口是 `https://computer-name.tailnet-name.ts.net/companion/`。在电脑设置页选择“配对新手机”，用手机相机扫描二维码，在手机填写设备名称，并在两边核对相同的六位验证码后才批准。
 
 配对成功后，先在 Tailscale 中确认手机显示“已连接”，再在同一个 Android Chrome 普通标签页打开 `https://computer-name.tailnet-name.ts.net/companion/?install=1`，点击页面中的“安装应用”。专用入口不会因为设备已经提升为 Owner 而提前跳到 Harness 根页面。页面会绕过静态缓存检查 Host 连通性；如果只剩离线缓存，必须恢复 Tailscale 后才能安装。Chrome 接受安装请求并不表示 Android 已经提供可用的桌面入口；页面会提示从手机桌面打开一次 DSH Companion，只有这次独立窗口启动被原安装标签页检测到，或浏览器直接返回已安装 Web App，才显示“已确认安装”。Chrome 只创建桌面快捷方式时不会生成独立 WebAPK Package，这是正常的 PWA 安装形式。HyperOS 还要求 Chrome 拥有“桌面快捷方式”权限；在“设置 > 应用设置 > 应用管理 > Chrome > 权限管理 > 其他权限”中把该权限设为“始终允许”。安装后的入口仍然连接同一 Tailscale HTTPS Origin；Viewer 留在只读 Companion，Owner 进入 Harness 官方客户端。PWA 的 Service Worker 只缓存当前版本的静态界面资源，离线时不能读取 Session、配对、审批或发送 Prompt。
@@ -82,9 +90,15 @@ adb install -r "D:\dsh-companion\apps\android\android\app\build\outputs\apk\debu
 
 首次启动 APK 时，在电脑的 Companion 设置页选择“配对新手机”并复制二维码对应的完整 HTTPS 链接。当前 APK 先用“配对链接”输入框粘贴该链接，相机扫码 Provider 尚未接入。点击“开始配对”后，手机显示六位码；电脑待批准列表出现相同设备名称和号码后才批准。新设备默认是 Viewer；需要发送 Prompt 或处理 Interaction 时，在电脑设置页把该设备提升为“完整控制” Owner。
 
-批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入真实 Companion Session 列表；收件箱与设置保留在列表页底部导航。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启或 Tailscale 暂时断开会使当前连接失效，但不会删除设备记录；恢复网络后点击“重试连接”会再次签名。只有电脑撤销设备，或在 App 中选择“删除配对”并二次确认后，才必须重新配对。
+批准后，APK 会通过 Android Keystore 密钥签名 Challenge，建立内存短会话并进入当前 Companion Session；手机左侧抽屉包含 Session、收件箱和设置。以后冷启动使用同一 Keystore 身份重新认证，不需要重新配对。Harness 重启或 Tailscale 暂时断开会使当前连接失效，但不会删除设备记录；恢复网络后点击“重试连接”会再次签名。只有电脑撤销设备，或在 App 中选择“删除配对”并二次确认后，才必须重新配对。
 
-Owner 可以直接打开已有 Session，或点击列表右上角加号或空状态中的“开始对话”，再选择电脑 Harness 已注册的 Workspace。App 等待 Harness 创建或复用该 Workspace 的空白 Session 后进入对话页；该页只保留会话顶栏、对话记录和底部输入框。用户消息显示为右侧气泡，Agent 正文按 Harness 网页端的 Markdown 规则显示，思考与 Tool 调用折叠为可展开轨迹行；发送按钮与运行期间的停止按钮位于一体化输入框右下角。返回 Session 列表后才能切换收件箱和设置。Workspace、消息、流式回复和运行状态都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送和停止操作都会禁用。当前输入只支持纯文本；附件、模型切换和权限切换尚未接入，不会因为界面接近网页版而出现虚假控件。
+Host 端的设备公钥、访问级别、有效期和撤销状态由 Storage Domain 持久化到当前 `DSH_HOME` 下的 `storages/device_trust.json`；手机只在 Android Keystore 保存不可导出的私钥，并在应用私有 SharedPreferences 保存 Host Origin、设备 id 和名称。配对 Offer、Challenge、短会话和 WebSocket Ticket 只存在于进程内存，Host 重启后会重新签发。关闭服务不会删除长期身份，但改用另一个 `DSH_HOME` 会得到另一套设备记录；单台电脑不需要 MySQL。不要把该存储文件或整个测试 Home 上传到公开仓库。
+
+如果失败页提示当前地址没有返回 DSH Companion 认证响应，说明 Tailscale Origin 正在转发普通 Harness 或其他服务。电脑端访问 `/companion/manifest.webmanifest` 必须返回名为 `DSH Companion` 的 JSON；先停止占用 3080 的普通 `dsh web`，再双击 `start-companion.cmd`，然后在手机点击“重试连接”。该过程不需要删除配对。
+
+Owner 可以直接打开已有 Session，或在左侧 Session 导航点击加号，先选择 Host 提供的 Agent 模式，再选择电脑 Harness 已注册的 Workspace。手机点击会话顶栏按钮或在页面任意位置向右拖动打开抽屉，点击遮罩或向左拖动返回对话；桌面端常驻显示同一 Session 列表。两个方向的抽屉与遮罩都跟随手指移动，松手时拖动超过抽屉宽度的一半才切换到另一界面，否则回弹；明显的纵向滚动不会触发。运行中的 Session 显示旋转进度，后台完成且尚未查看的 Session 显示绿点，打开该会话后绿点消失。模式只对即将创建或复用的空白 Session 生效；已有对话不能更换 Agent 组合。App 等待 Harness 返回并组合该 Session 后进入对话页；该页只保留会话顶栏、对话记录、待处理确认和底部输入框。用户消息显示为右侧气泡，Agent 正文按 Harness 网页端的 Markdown 规则显示，思考与 Tool 调用折叠为可展开轨迹行；发送按钮与运行期间的停止按钮位于一体化输入框右下角。需要审批或回答的问题显示在对话历史下方、输入框上方。
+
+输入框左下角的加号每次从 Host 读取当前 Agent 的命令；无参数命令会直接执行，带参数命令会把 `/<命令> ` 放入输入框继续填写。权限按钮读取当前 Session 的 `permissions` Projection，切换 Full access 前必须确认风险；模型按钮只显示 Host 已加载的 Provider 与模型，推理等级使用该模型实际提供的选项，例如 DeepSeek 模型的 Off、High 和 Max。权限、模式、模型与推理等级都写回电脑上的同一个 Harness Session，其他客户端读取的是同一 Host 状态，不是手机本地设置。命令、权限或模型菜单打开后，点击控制区之外或按 Escape 即可关闭。收件箱和设置位于左侧导航下方。Workspace、消息、流式回复和运行状态同样都来自 Host；手机不能注册新目录，也不保存 Workspace 内容或模型密钥。Viewer 只能查看，断线时新建、发送、切换和停止操作都会禁用。当前 Prompt 输入只支持纯文本，附件尚未接入。
 
 APK 不读取 PWA Cookie，不把 Harness Credential、模型 Credential 或私钥交给 JavaScript。不要把 Capacitor `server.url` 指向 Tailscale Origin，不要放宽 PWA 的 `SameSite=Strict` HttpOnly Cookie，也不要把 Bearer Token、Harness 配置或模型 API Key 写入 Vite 环境变量、APK 资源或手机存储。
 
@@ -133,4 +147,4 @@ pnpm android:sync
 pnpm android:apk
 ```
 
-`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、配对、Workspace Session 创建、Markdown 对话层级、Tool 去重、首条消息、停止运行、失败与空状态、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连、创建 Session、真实模型对话与设置页权限显示。
+`test:web` 覆盖 390x844、430x932、1280x800，以及 390x844 的 Android Shell 视口；它检查 PWA Manifest、Service Worker 控制范围、缓存中没有 API 响应、配对、Agent 模式与 Workspace Session 创建、侧边栏按钮与滑动手势、Session 运行与完成提醒、Host 命令、权限 Projection、模型与推理等级切换、菜单外部点击关闭、Markdown 对话层级、Tool 去重、首条消息、停止运行、失败与空状态、未配对原生入口和页面无横向溢出。Harness 聚焦测试覆盖 P-256 签名、短会话、一次性 WebSocket Ticket、访问级别替换与撤销；真机验收还要完成 APK 安装、六位码批准、Viewer 连接、Owner 自动重连、创建 Session、真实模型对话与设置页权限显示。

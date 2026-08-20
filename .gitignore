@@ -14,3 +14,4 @@ test-results/
 .env
 .env.*
 !.env.example
+companion.local.psd1
