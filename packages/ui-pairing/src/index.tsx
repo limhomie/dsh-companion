@@ -12,7 +12,7 @@ import {
   DeviceTrustClientError,
   DeviceTrustHttpClient,
 } from '@dsh-companion/device-trust-web'
-import type { ClaimPairingResponse } from '@deepseek-ai/dsh-device-trust-connection'
+import type { ClaimPairingResponse } from '@dsh-companion/device-trust-connection'
 
 const POLL_INTERVAL_MS = 2_000
 
@@ -30,7 +30,7 @@ export function UnpairedDevicePage() {
         <span className="pairing-leading unpaired"><QrCode aria-hidden="true" size={24} /></span>
         <p className="eyebrow">尚未建立可信连接</p>
         <h1>这台手机还没有配对</h1>
-        <p className="pairing-status pairing-instructions">请在电脑端打开 Companion 设置，选择“配对新手机”，再用这台手机扫描二维码。</p>
+        <p className="pairing-status pairing-instructions">请在电脑端打开 Companion 设置，选择“生成手机配对二维码”，再用这台手机扫描。</p>
       </section>
     </main>
   )

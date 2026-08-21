@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@dsh-companion/device-trust": ["./packages/device-trust/src/index.ts"],
+      "@dsh-companion/device-trust-connection": ["./packages/device-trust-connection/src/protocol.ts"],
+      "@dsh-companion/device-trust-connection/host": ["./packages/device-trust-connection/src/index.ts"],
+      "@dsh-companion/device-trust-local": ["./packages/device-trust-local/src/index.ts"]
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2024",
+    "types": ["node", "vitest/globals"]
+  }
+}

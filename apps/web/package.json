@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/barcode-scanner": "3.1.1",
     "@capacitor/core": "8.5.0",
     "@deepseek-ai/cordis": "link:../../../deepseek-harness/vendor/cordis",
     "@deepseek-ai/dsh-api-gateway": "link:../../../deepseek-harness/packages/api/gateway",
@@ -19,6 +20,7 @@
     "@deepseek-ai/dsh-client-runtime": "link:../../../deepseek-harness/packages/client/runtime",
     "@deepseek-ai/dsh-typert-registry": "link:../../../deepseek-harness/packages/typert/registry",
     "@dsh-companion/conversation-projection": "workspace:*",
+    "@dsh-companion/device-trust-connection": "workspace:*",
     "@dsh-companion/device-trust-web": "workspace:*",
     "@dsh-companion/native-connection": "workspace:*",
     "@dsh-companion/ui-inbox": "workspace:*",

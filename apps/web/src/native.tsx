@@ -2,34 +2,94 @@ import { useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
   CircleAlert,
+  ClipboardPaste,
   Link,
   LoaderCircle,
   PanelsTopLeft,
   RotateCcw,
+  ScanLine,
   ShieldCheck,
   Smartphone,
   Trash2,
 } from 'lucide-react'
-import type { ClaimPairingResponse } from '@deepseek-ai/dsh-device-trust-connection'
+import type { ClaimPairingResponse } from '@dsh-companion/device-trust-connection'
 import { DeviceTrustClientError } from '@dsh-companion/device-trust-web'
-import { NativeConnectionClient, type NativeDevicePrincipal } from '@dsh-companion/native-connection'
+import {
+  NativeConnectionClient,
+  NativePairingUrlError,
+  parseNativePairingUrl,
+  type NativeDevicePrincipal,
+} from '@dsh-companion/native-connection'
+import { NativePairingScannerError, scanNativePairingUrl } from './native-scanner.ts'
 
 const POLL_INTERVAL_MS = 2_000
 
 type NativePhase = 'starting' | 'unpaired' | 'claiming' | 'waiting' | 'connecting' | 'failed'
 
-function nativeError(error: unknown): string {
+interface NativeFailure {
+  readonly title: string
+  readonly detail: string
+  readonly recovery: 'retry' | 'repair'
+}
+
+function nativeFailure(error: unknown): NativeFailure {
   if (error instanceof DeviceTrustClientError) {
     switch (error.code) {
-      case 'offer-not-found': return '配对链接不存在或已经使用，请在电脑上重新创建'
+      case 'offer-not-found': return {
+        title: '配对二维码已经失效',
+        detail: '请在电脑的 Companion 设置中重新生成二维码。',
+        recovery: 'retry',
+      }
       case 'offer-expired':
-      case 'claim-expired': return '配对链接已经过期，请在电脑上重新创建'
-      case 'device-revoked': return '这台 Android 设备已经被撤销'
-      case 'native-signature-invalid': return 'Android Keystore 身份校验失败'
-      default: return error.kind === 'network' ? '无法连接电脑，请检查 Tailscale' : error.message
+      case 'claim-expired': return {
+        title: '配对二维码已经过期',
+        detail: '电脑不会再接受这次请求，请重新生成二维码。',
+        recovery: 'retry',
+      }
+      case 'device-not-found':
+      case 'device-revoked': return {
+        title: '这台手机的授权已失效',
+        detail: '电脑已撤销或清理了该设备，需要删除本机配对后重新扫码。',
+        recovery: 'repair',
+      }
+      case 'native-signature-invalid': return {
+        title: '设备密钥无法通过验证',
+        detail: 'Android Keystore 身份与电脑记录不一致，需要重新配对。',
+        recovery: 'repair',
+      }
+      case 'request-timeout': return {
+        title: '连接电脑超时',
+        detail: '确认电脑上的 Companion Host 正在运行，并检查手机的 Tailscale 连接。',
+        recovery: 'retry',
+      }
+      default:
+        if (error.kind === 'network') return {
+          title: '无法到达电脑',
+          detail: '确认手机已连接 Tailscale，且电脑上的 Companion Host 可以访问。',
+          recovery: 'retry',
+        }
+        if (error.kind === 'invalid-response') {
+          const isCompatibleStatus = error.status === undefined || (error.status >= 200 && error.status < 300)
+          return {
+            title: isCompatibleStatus ? 'Host 响应不兼容' : '当前地址不是 Companion Host',
+            detail: isCompatibleStatus
+              ? '电脑端版本与这台 App 不兼容，请更新后重试。'
+              : '这个 Origin 返回了其他服务，请在该地址启动 Companion Host。',
+            recovery: 'retry',
+          }
+        }
+        return {
+          title: '设备认证被拒绝',
+          detail: '电脑可以到达，但没有接受当前身份。请检查设备授权后重试。',
+          recovery: 'retry',
+        }
     }
   }
-  return error instanceof Error ? error.message : 'Android 连接失败'
+  return {
+    title: '无法连接 Harness',
+    detail: error instanceof Error ? error.message : 'Android 连接启动失败，请重试。',
+    recovery: 'retry',
+  }
 }
 
 /** Android key-bound pairing and startup page. */
@@ -44,13 +104,16 @@ export function NativeShellPage({
   const transferred = useRef(false)
   const [phase, setPhase] = useState<NativePhase>('starting')
   const [pairingUrl, setPairingUrl] = useState('')
+  const [showPaste, setShowPaste] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [pairingIssue, setPairingIssue] = useState<string>()
   const [claim, setClaim] = useState<ClaimPairingResponse>()
-  const [error, setError] = useState<string>()
+  const [failure, setFailure] = useState<NativeFailure>()
   const [hasSavedConnection, setHasSavedConnection] = useState(false)
   const [confirmingReset, setConfirmingReset] = useState(false)
 
   const connect = async (): Promise<void> => {
-    setError(undefined)
+    setFailure(undefined)
     setPhase('connecting')
     const device = await client.authenticate()
     transferred.current = true
@@ -70,12 +133,12 @@ export function NativeShellPage({
         await connect()
       } catch (cause) {
         if (!active) return
-        setError(nativeError(cause))
+        setFailure(nativeFailure(cause))
         setPhase('failed')
       }
     }).catch(cause => {
       if (!active) return
-      setError(nativeError(cause))
+      setFailure(nativeFailure(cause))
       setPhase('failed')
     })
     return () => {
@@ -99,13 +162,17 @@ export function NativeShellPage({
           await connect()
         }
         if (result.status === 'rejected') {
-          setError('电脑端没有批准这次配对')
+          setFailure({
+            title: '电脑拒绝了配对',
+            detail: '请核对六位码后，在电脑设置中重新生成二维码。',
+            recovery: 'retry',
+          })
           setPhase('failed')
         }
       } catch (cause) {
         if (!active) return
         if (!(cause instanceof DeviceTrustClientError && cause.kind === 'network')) {
-          setError(nativeError(cause))
+          setFailure(nativeFailure(cause))
           setPhase('failed')
         }
       } finally {
@@ -120,15 +187,38 @@ export function NativeShellPage({
     }
   }, [claim, client, phase])
 
-  const claimOffer = async (): Promise<void> => {
-    setPhase('claiming')
-    setError(undefined)
+  const claimOffer = async (value: string): Promise<void> => {
     try {
-      setClaim(await client.claimPairingUrl(pairingUrl))
+      parseNativePairingUrl(value)
+    } catch (cause) {
+      setPairingIssue(cause instanceof NativePairingUrlError ? cause.message : '无法读取这个配对链接')
+      setPhase('unpaired')
+      return
+    }
+    setPhase('claiming')
+    setFailure(undefined)
+    setPairingIssue(undefined)
+    try {
+      setClaim(await client.claimPairingUrl(value))
       setPhase('waiting')
     } catch (cause) {
-      setError(nativeError(cause))
+      setFailure(nativeFailure(cause))
       setPhase('failed')
+    }
+  }
+
+  const scanAndClaim = async (): Promise<void> => {
+    setScanning(true)
+    setPairingIssue(undefined)
+    try {
+      const value = await scanNativePairingUrl()
+      if (value === undefined) return
+      setPairingUrl(value)
+      await claimOffer(value)
+    } catch (cause) {
+      setPairingIssue(cause instanceof NativePairingScannerError ? cause.message : '无法打开扫码器，请改用粘贴配对链接')
+    } finally {
+      setScanning(false)
     }
   }
 
@@ -139,10 +229,11 @@ export function NativeShellPage({
       setHasSavedConnection(false)
       setClaim(undefined)
       setPairingUrl('')
-      setError(undefined)
+      setPairingIssue(undefined)
+      setFailure(undefined)
       setPhase('unpaired')
     } catch (cause) {
-      setError(nativeError(cause))
+      setFailure(nativeFailure(cause))
       setPhase('failed')
     }
   }
@@ -152,14 +243,15 @@ export function NativeShellPage({
     try {
       await connect()
     } catch (cause) {
-      setError(nativeError(cause))
+      setFailure(nativeFailure(cause))
       setPhase('failed')
     }
   }
 
   const returnToPairing = (): void => {
     setClaim(undefined)
-    setError(undefined)
+    setPairingIssue(undefined)
+    setFailure(undefined)
     setPhase('unpaired')
   }
 
@@ -182,22 +274,36 @@ export function NativeShellPage({
             <span className="pairing-leading"><Smartphone aria-hidden="true" size={24} /></span>
             <p className="eyebrow">Android 安全配对</p>
             <h1>连接这台电脑</h1>
-            <label className="pairing-field">
-              <span>配对链接</span>
-              <input
-                autoCapitalize="none"
-                autoCorrect="off"
-                inputMode="url"
-                placeholder="https://电脑地址/companion/?pair=..."
-                value={pairingUrl}
-                onChange={event => { setPairingUrl(event.target.value) }}
-              />
-            </label>
-            <button className="button primary pairing-submit" type="button" disabled={phase === 'claiming' || pairingUrl.trim() === ''} onClick={() => { void claimOffer() }}>
-              {phase === 'claiming' ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : <Link aria-hidden="true" size={18} />}
-              {phase === 'claiming' ? '正在请求' : '开始配对'}
+            <button className="button primary pairing-submit native-scan-button" type="button" disabled={phase === 'claiming' || scanning} onClick={() => { void scanAndClaim() }}>
+              {phase === 'claiming' || scanning ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : <ScanLine aria-hidden="true" size={18} />}
+              {scanning ? '正在打开相机' : phase === 'claiming' ? '正在请求配对' : '扫描电脑二维码'}
             </button>
-            <p className="pairing-status pairing-instructions">在电脑 Companion 设置中创建配对二维码，把二维码对应的完整链接粘贴到这里。</p>
+            <button className="button secondary native-paste-toggle" type="button" aria-expanded={showPaste} onClick={() => { setShowPaste(value => !value) }}>
+              <ClipboardPaste aria-hidden="true" size={17} />{showPaste ? '收起链接输入' : '改用粘贴配对链接'}
+            </button>
+            {showPaste && (
+              <div className="native-paste-panel">
+                <label className="pairing-field">
+                  <span>配对链接</span>
+                  <input
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    inputMode="url"
+                    placeholder="https://电脑地址/companion/?pair=..."
+                    value={pairingUrl}
+                    onChange={event => {
+                      setPairingUrl(event.target.value)
+                      setPairingIssue(undefined)
+                    }}
+                  />
+                </label>
+                <button className="button secondary pairing-link-submit" type="button" disabled={phase === 'claiming' || scanning || pairingUrl.trim() === ''} onClick={() => { void claimOffer(pairingUrl) }}>
+                  <Link aria-hidden="true" size={17} />验证并配对
+                </button>
+              </div>
+            )}
+            {pairingIssue !== undefined && <p className="inline-error native-pairing-error" role="alert"><CircleAlert aria-hidden="true" size={16} />{pairingIssue}</p>}
+            <p className="pairing-status pairing-instructions">在电脑的 Companion 设置中生成二维码，再用这台手机扫描。</p>
           </>
         ) : phase === 'waiting' && claim !== undefined ? (
           <>
@@ -211,13 +317,16 @@ export function NativeShellPage({
           <>
             <span className="pairing-leading failed"><CircleAlert aria-hidden="true" size={24} /></span>
             <p className="eyebrow error">Android 连接失败</p>
-            <h1>{error ?? '无法连接 Harness'}</h1>
+            <h1>{failure?.title ?? '无法连接 Harness'}</h1>
+            <p className="pairing-status native-failure-detail">{failure?.detail ?? '请检查电脑端服务后重试。'}</p>
             {hasSavedConnection ? (
               <div className="native-recovery-actions">
                 <p className="pairing-status">原配对仍保存在这台手机上</p>
-                <button className="button primary pairing-submit" type="button" onClick={() => { void retryConnection() }}>
-                  <RotateCcw aria-hidden="true" size={18} />重试连接
-                </button>
+                {failure?.recovery !== 'repair' && (
+                  <button className="button primary pairing-submit" type="button" onClick={() => { void retryConnection() }}>
+                    <RotateCcw aria-hidden="true" size={18} />重试连接
+                  </button>
+                )}
                 {confirmingReset ? (
                   <div className="native-reset-confirm" role="alert">
                     <p>删除后必须在电脑上重新创建并批准配对。</p>

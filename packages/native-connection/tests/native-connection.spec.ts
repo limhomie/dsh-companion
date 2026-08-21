@@ -5,7 +5,7 @@ vi.mock('@deepseek-ai/dsh-client-connection/client', () => ({
   createConnectionHandle: vi.fn(),
   createWebConnectionRpc: vi.fn(),
 }))
-vi.mock('@deepseek-ai/dsh-device-trust', () => ({
+vi.mock('@dsh-companion/device-trust', () => ({
   DeviceId: (value: string) => value,
   NativeChallengeId: (value: string) => value,
   nativeChallengeMessage: (deviceId: string, challengeId: string, challenge: string) => (
@@ -27,6 +27,8 @@ vi.mock('@dsh-companion/device-trust-web', () => ({
 
 import {
   NativeConnectionClient,
+  NativePairingUrlError,
+  parseNativePairingUrl,
   type NativeIdentityPlugin,
 } from '../src/index.ts'
 
@@ -53,6 +55,17 @@ afterEach(() => {
 })
 
 describe('NativeConnectionClient', () => {
+  it('accepts only an HTTPS pairing URL with an offer UUID', () => {
+    expect(parseNativePairingUrl(`https://host.example/companion/?pair=${DEVICE_ID}`)).toEqual({
+      origin: 'https://host.example',
+      offerId: DEVICE_ID,
+    })
+    expect(() => parseNativePairingUrl(`http://host.example/companion/?pair=${DEVICE_ID}`))
+      .toThrow(NativePairingUrlError)
+    expect(() => parseNativePairingUrl('https://host.example/companion/'))
+      .toThrow('二维码不包含安全配对信息')
+  })
+
   it.each([
     {
       name: 'a plain Harness route',
@@ -135,5 +148,50 @@ describe('NativeConnectionClient', () => {
       `DSH-Native ${credentials[0]}`,
       `DSH-Native ${credentials[1]}`,
     ])
+  })
+
+  it('aborts a native authentication request at the bounded timeout', async () => {
+    const platform = identity()
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => (
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'))
+        }, { once: true })
+      })
+    )))
+
+    const client = new NativeConnectionClient(platform, 5)
+    await client.loadBinding()
+
+    await expect(client.authenticate()).rejects.toMatchObject({
+      kind: 'network',
+      code: 'request-timeout',
+      message: '连接电脑超时，请检查 Companion Host 和 Tailscale 后重试',
+    })
+    expect(platform.reset).not.toHaveBeenCalled()
+  })
+
+  it('waits for an aborted request when the client closes', async () => {
+    const platform = identity()
+    let aborted = false
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => (
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          aborted = true
+          reject(new DOMException('aborted', 'AbortError'))
+        }, { once: true })
+      })
+    )))
+    const client = new NativeConnectionClient(platform)
+    await client.loadBinding()
+    const authentication = client.authenticate()
+    const rejected = expect(authentication).rejects.toMatchObject({ kind: 'closed' })
+    await vi.waitFor(() => { expect(globalThis.fetch).toHaveBeenCalledTimes(1) })
+
+    await client.close()
+    await rejected
+
+    expect(aborted).toBe(true)
+    expect(platform.reset).not.toHaveBeenCalled()
   })
 })

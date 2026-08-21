@@ -1,4 +1,6 @@
 node_modules/
+.pnpm-store/
+packages/*/lib/
 dist/
 packages/host-web/web-dist/
 apps/android/www/

@@ -16,6 +16,10 @@ Host 重启后如果 Tailscale Origin 转发到普通 `dsh web`，原生认证�
 
 原生 HTTP 解析器把反向代理的 `502`、`503` 和 `504` 非 JSON 响应归类为暂时不可达。其他非 JSON 响应归类为 Host 部署错误，并明确要求在保存的 Origin 上启动 Companion Host，而不是普通 `dsh web`。错误正文不进入日志或界面。一键启动器继续以 Companion Manifest 判断已有实例；端口被其他服务占用时，提示用户关闭普通 Harness 后重试，并说明配置目录中的配对记录不会因此删除。
 
+连接入口把失败显示为稳定的标题、说明和恢复动作，而不是直接展示底层异常：网络或 Tailscale 不可达、Origin 上不是 Companion Host、Host 响应不兼容、设备已撤销、Keystore 签名失效和一般认证拒绝分别处理。只有明确的设备撤销或本机密钥失效要求重新配对；其余失败的主要操作都是保留绑定并重试。HTTP 状态、错误正文和 Credential 不进入显示文案。
+
+原生认证与配对 HTTP 请求使用 12 秒有界超时；同一个 Client 持有 AbortController 和在途任务，超时或关闭会中止 Fetch，`close()` 等待这些任务停止。读取 Agent preset 自动进行至多一次有界重试；Workspace/Session 基线加载只增加慢响应诊断。创建 Session 不做盲目自动重试：Harness Runtime 已按 Workspace 合并在途创建并复用 Host 空白 Session，界面超时后显式重试仍复用同一个在途事务或 Host 基线，不自行分配第二份 Session。Prompt 继续复用已有 Operation id，响应丢失后的显式重试不会重复提交不同内容。
+
 ## Alternatives considered
 
 **连接失败后自动清空配对。** Reachability 与 Authentication 是不同失败类别；暂时关闭 VPN、切换网络或 Host 重启都不构成撤销设备身份的证据。
@@ -24,8 +28,10 @@ Host 重启后如果 Tailscale Origin 转发到普通 `dsh web`，原生认证�
 
 **无限自动重试，不提供显式操作。** VPN 状态变化不保证可靠触发 WebView 网络事件，无界后台重试也会增加电量和生命周期复杂度；当前切片先提供确定性的用户重试入口。
 
+**对所有 RPC 做统一超时和自动重试。** 读取与修改操作的提交语义不同；在协议没有幂等证据时重试 Session 创建或控制操作可能重复产生 Host 状态。当前只自动重试只读目录，并让 Runtime 已经合并或带 Operation id 的事务负责其余恢复。
+
 **为设备记录增加 MySQL。** 当前 Host 是单机权威来源，Storage Domain 已把设备公钥、访问级别和撤销状态持久化到 `DSH_HOME`。外部数据库不会修复错误服务占用 Origin，还会增加凭据运维、迁移和可用性依赖。
 
 ## Consequences
 
-Vitest 覆盖普通 Harness 的纯文本响应、暂时不可用的反向代理和内存会话过期后的重新认证。Playwright 通过 Android 真实入口覆盖 Host 网络失败、Origin 上运行普通 Harness、重试、取消删除和确认删除，并检查 390x844 视口没有横向溢出。使用现有 `DSH_HOME` 在备用回环端口启动真实 Companion Host 后，Manifest 返回预期应用身份，持久 Android 设备记录可以直接签发新的原生 Challenge，不要求重新配对。
+Vitest 覆盖普通 Harness 的纯文本响应、暂时不可用的反向代理、请求超时、关闭等待和内存会话过期后的重新认证。Playwright 通过 Android 真实入口覆盖 Host 网络失败、Origin 上运行普通 Harness、设备撤销、重试、取消删除和确认删除，并检查 390x844 视口没有横向溢出。Workspace 与 Agent preset Fixture 覆盖慢基线提示、有界只读重试，以及 Session 创建失败后选择页保持可操作。使用现有 `DSH_HOME` 在备用回环端口启动真实 Companion Host 后，Manifest 返回预期应用身份，持久 Android 设备记录可以直接签发新的原生 Challenge，不要求重新配对。

@@ -17,13 +17,16 @@ The Harness backend still listens only on `127.0.0.1`. Tailscale Serve supplies 
 - Lets the local Settings page create a QR offer, compare and approve a six-digit code, list paired devices, and revoke one after explicit confirmation.
 - Gives every newly paired device viewer access and lets the loopback Settings page explicitly promote it to owner after a complete-control warning.
 - Starts the official Harness Web client for authenticated owners; viewers remain in Companion, and unknown or Host-native API targets fail closed as local-only.
-- Mounts the production build at `/companion` through a Host plugin that rejects non-loopback binds and mismatched Harness package versions.
+- Installs `@dsh-companion/host` through the standard `dsh plugin --profile web` lifecycle, mounting the device-trust provider, authenticated consumer, and production build while rejecting non-loopback binds, mismatched versions, and missing public authentication capabilities before remote access opens.
 - Publishes an installable manifest, home-screen icons, and a Service Worker that precaches only versioned static assets; `/companion/?install=1` gives viewers and owners a stable installation entry that does not start Harness, and API and WebSocket data are never cached.
 - Includes a Capacitor 8 Android project that reuses the same React/Vite entry and remains outside Harness until native device identity exists.
+- Scans the computer's pairing QR code in the Android app, validates the same HTTPS one-time offer as the paste fallback, and keeps six-digit approval and per-device Keystore trust unchanged.
 - Lets a native owner choose an existing Host workspace, create or reuse its blank session, send the first prompt, and stop a running turn without copying Harness session state.
+- Classifies native reachability, wrong-service, compatibility, revocation, and key failures without deleting a saved pairing; the Composer can expand full-screen without moving its draft or operation state.
+- Keeps the three most recent Session views in memory during one run, reusing rendered history, scroll position, and drafts while inactive views pause subscriptions and never enter persistent storage.
 - Runs keyless browser coverage against the official Harness Fixture at 390x844, 430x932, and 1280x800.
 
-See the [architecture](docs/architecture.md), the [Chinese mobile and Android guide](docs/mobile.zh.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [installable PWA and Capacitor decision](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
+See the [architecture](docs/architecture.md), the [Chinese Host bundle guide](docs/host-plugin.zh.md), the [Chinese mobile and Android guide](docs/mobile.zh.md), the [trusted Host-served PWA decision](.agents/notes/implemented/architecture/2026-08-16-trusted-host-served-pwa.md), the [installable PWA and Capacitor decision](.agents/notes/implemented/architecture/2026-08-17-installable-pwa-and-capacitor-android.md), [AGENTS.md](AGENTS.md), and the [Chinese design workflow](docs/design-workflow.zh.md).
 
 ## Setup
 
@@ -35,7 +38,7 @@ workspace/
   dsh-companion/
 ```
 
-Companion pins DeepSeek Harness `0.1.0-rc.5` at commit `f652a3263943a26ebfa3f0945230c1f40884637d`. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
+Source development currently pins DeepSeek Harness `0.1.0-rc.5` at migration commit `f652a3263943a26ebfa3f0945230c1f40884637d`. Official `0.1.0-rc.8` still lacks the public authentication extensions required by remote owner operations and cannot serve the current APK. The [Chinese Host bundle guide](docs/host-plugin.zh.md) records compatibility and the future one-command install path. Node.js 22.19 or newer, pnpm 10, and Chrome are required.
 
 Prepare Harness once:
 
@@ -52,6 +55,8 @@ cd ../dsh-companion
 pnpm install
 pnpm host
 ```
+
+`pnpm host` builds and installs the local bundle through the official `dsh plugin --profile web` lifecycle, then starts ordinary `dsh web`; it no longer generates a temporary `--patch`.
 
 Open [http://127.0.0.1:3080/companion/](http://127.0.0.1:3080/companion/). It reads sessions from that `dsh web` process; the existing Harness app remains at `/`.
 
@@ -99,4 +104,4 @@ pnpm run test:web
 
 ## PWA and Android
 
-The browser surface is installable as a PWA from `/companion/?install=1`. The [Chinese mobile and Android guide](docs/mobile.zh.md) documents Capacitor sync, Debug APK builds, Android Studio, and the future GitHub Releases path. The current APK proves packaging and the fail-closed native entry; real connections still use the PWA. Native QR scanning, notifications, background reconnect, and Keystore-backed device identity follow through platform plugins. Harness execution and model credentials remain on the computer.
+The browser surface is installable as a PWA from `/companion/?install=1`. The [Chinese mobile and Android guide](docs/mobile.zh.md) documents Capacitor sync, Debug APK builds, Android Studio, and the future GitHub Releases path. The current APK implements Keystore pairing, viewer/owner access, sessions, approvals, and reconnect, but its Host still needs the migration baseline. Testers can use their own official Harness only after the generic authentication extensions land in a verified official release. Harness execution and model credentials remain on the computer.

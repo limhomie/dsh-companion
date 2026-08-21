@@ -109,12 +109,12 @@ async function bootNativeRuntime(
     if (import.meta.hot) {
       import.meta.hot.dispose(() => {
         trust.dispose()
-        client.close()
+        void client.close()
         void disposeFibers(fibers)
       })
     }
   } catch (error) {
-    client.close()
+    await client.close()
     await disposeFibers(fibers)
     throw error
   }

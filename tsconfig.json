@@ -16,11 +16,11 @@
       "@deepseek-ai/dsh-client-connection/client": [
         "../deepseek-harness/packages/client/connection/src/client/index.ts"
       ],
-      "@deepseek-ai/dsh-device-trust": [
-        "../deepseek-harness/packages/identity/device-trust/src/index.ts"
+      "@dsh-companion/device-trust": [
+        "./packages/device-trust/src/index.ts"
       ],
-      "@deepseek-ai/dsh-device-trust-connection": [
-        "../deepseek-harness/packages/identity/device-trust-connection/src/protocol.ts"
+      "@dsh-companion/device-trust-connection": [
+        "./packages/device-trust-connection/src/protocol.ts"
       ],
       "@deepseek-ai/dsh-client-ui-conversation/client": [
         "../deepseek-harness/packages/client/ui-conversation/src/client/contract/chat-nodes.ts"
@@ -33,5 +33,5 @@
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx", "*.ts"],
-  "exclude": ["packages/host-web"]
+  "exclude": ["packages/host-web", "packages/device-trust", "packages/device-trust-local", "packages/device-trust-connection"]
 }

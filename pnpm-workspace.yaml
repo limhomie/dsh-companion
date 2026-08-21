@@ -5,3 +5,15 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+
+overrides:
+  '@deepseek-ai/cordis': link:../deepseek-harness/vendor/cordis
+  '@deepseek-ai/dsh-action-source': link:../deepseek-harness/packages/identity/action-source
+  '@deepseek-ai/dsh-brand': link:../deepseek-harness/packages/util/brand
+  '@deepseek-ai/dsh-client-connection': link:../deepseek-harness/packages/client/connection
+  '@deepseek-ai/dsh-host-apiproxy': link:../deepseek-harness/packages/host/apiproxy
+  '@deepseek-ai/dsh-host-webserver': link:../deepseek-harness/packages/host/webserver
+  '@deepseek-ai/dsh-invariants': link:../deepseek-harness/packages/runtime-diagnostics/invariants
+  '@deepseek-ai/dsh-storage': link:../deepseek-harness/packages/storage/storage
+  '@deepseek-ai/dsh-storage-domain': link:../deepseek-harness/packages/storage/storage-domain
+  '@deepseek-ai/dsh-storage-json': link:../deepseek-harness/packages/storage/storage-json

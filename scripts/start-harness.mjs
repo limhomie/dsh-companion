@@ -1,19 +1,7 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { harnessRoot, projectRoot } from './verify-harness.mjs'
+import { harnessRoot, verifyHarnessCheckout } from './verify-harness.mjs'
 
-const tempRoot = resolve(projectRoot, '.tmp')
-const patchPath = resolve(tempRoot, 'companion.patch.yml')
-const pluginUrl = pathToFileURL(resolve(projectRoot, 'packages/host-web/src/index.ts')).href
-mkdirSync(tempRoot, { recursive: true })
-writeFileSync(patchPath, [
-  '- insert:',
-  '    - id: companion-web',
-  `      name: ${JSON.stringify(pluginUrl)}`,
-  '',
-].join('\n'))
+verifyHarnessCheckout()
 
 const forwardedArgs = process.argv.slice(2)
 const configuredOrigin = process.env.DSH_COMPANION_PUBLIC_ORIGIN
@@ -28,7 +16,6 @@ if (configuredOrigin !== undefined) {
 const args = [
   '--dir', harnessRoot,
   'dsh', 'web',
-  '--patch', patchPath,
   ...forwardedArgs,
 ]
 const pnpmCli = process.env.npm_execpath

@@ -1,21 +1,41 @@
 {
-  "name": "@dsh-companion/host-web",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@dsh-companion/host",
+  "description": "Installable DeepSeek Harness bundle for DSH Companion",
+  "version": "0.1.0",
   "type": "module",
-  "exports": "./src/index.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./device-trust-local": { "types": "./lib/device-trust-local.d.ts", "default": "./lib/device-trust-local.js" },
+    "./device-trust-connection": { "types": "./lib/device-trust-connection.d.ts", "default": "./lib/device-trust-connection.js" },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": ["lib/**/*.js", "lib/**/*.d.ts", "cordis.patch.yml", "web-dist", "README.md"],
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.1",
+    "@dsh-companion/device-trust": "workspace:^",
+    "@dsh-companion/device-trust-connection": "workspace:^",
+    "@dsh-companion/device-trust-local": "workspace:^"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-client-connection": "0.1.0-rc.5",
-    "@deepseek-ai/dsh-device-trust-connection": "0.1.0-rc.5",
-    "@deepseek-ai/dsh-host-frontend-static": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-host-apiproxy": "0.1.0-rc.5",
     "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.5"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "link:../../../deepseek-harness/vendor/cordis",
-    "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
-    "@deepseek-ai/dsh-device-trust-connection": "link:../../../deepseek-harness/packages/identity/device-trust-connection",
-    "@deepseek-ai/dsh-host-frontend-static": "link:../../../deepseek-harness/packages/host/frontend-static",
-    "@deepseek-ai/dsh-host-webserver": "link:../../../deepseek-harness/packages/host/webserver"
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-host-apiproxy": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.5"
   }
 }

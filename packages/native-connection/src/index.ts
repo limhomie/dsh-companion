@@ -9,7 +9,7 @@ import {
   DeviceId,
   NativeChallengeId,
   nativeChallengeMessage,
-} from '@deepseek-ai/dsh-device-trust'
+} from '@dsh-companion/device-trust'
 import {
   DEVICE_PAIRING_PATHS,
   accessResponseSchema,
@@ -28,7 +28,7 @@ import {
   type ClaimPairingResponse,
   type PollPairingResponse,
   type TrustedDeviceResponse,
-} from '@deepseek-ai/dsh-device-trust-connection'
+} from '@dsh-companion/device-trust-connection'
 import {
   DeviceTrustClientError,
   type CompanionDeviceTrust,
@@ -56,6 +56,7 @@ interface Parser<T> {
 }
 
 const TEMPORARY_GATEWAY_STATUSES = new Set([502, 503, 504])
+const DEFAULT_REQUEST_TIMEOUT_MS = 12_000
 
 /** Validated durable connection facts that contain no reusable credential. */
 export interface NativeConnectionBinding {
@@ -73,11 +74,22 @@ function canonicalOrigin(value: string): string {
   return url.origin
 }
 
-function pairingTarget(value: string): { origin: string; offerId: string } {
-  const url = new URL(value.trim())
+/** Invalid or unsafe native pairing input rejected before any network request. */
+export class NativePairingUrlError extends Error {
+  override readonly name = 'NativePairingUrlError'
+}
+
+/** Validate a scanned or pasted pairing link at the native boundary. */
+export function parseNativePairingUrl(value: string): { origin: string; offerId: string } {
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    throw new NativePairingUrlError('这不是有效的配对二维码，请扫描电脑设置页生成的二维码')
+  }
   const offerId = url.searchParams.get('pair')
   if (url.protocol !== 'https:' || offerId === null || !/^[0-9a-f-]{36}$/i.test(offerId)) {
-    throw new Error('请输入电脑端生成的完整配对链接')
+    throw new NativePairingUrlError('二维码不包含安全配对信息，请在电脑设置中重新生成')
   }
   return { origin: url.origin, offerId }
 }
@@ -117,9 +129,14 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
   private sessionCredential: string | undefined
   private authentication: Promise<NativeDevicePrincipal> | undefined
   private binding: NativeConnectionBinding | undefined
+  private readonly controllers = new Set<AbortController>()
+  private readonly inFlight = new Set<Promise<unknown>>()
   private closed = false
 
-  constructor(private readonly identity: NativeIdentityPlugin = NativeIdentity) {}
+  constructor(
+    private readonly identity: NativeIdentityPlugin = NativeIdentity,
+    private readonly requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  ) {}
 
   /** Load non-secret connection metadata previously saved by the platform plugin. */
   async loadBinding(): Promise<NativeConnectionBinding | undefined> {
@@ -138,7 +155,7 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
 
   /** Claim a browser-generated offer with the Android Keystore public key. */
   async claimPairingUrl(pairingUrl: string, requestedLabel?: string): Promise<ClaimPairingResponse> {
-    const target = pairingTarget(pairingUrl)
+    const target = parseNativePairingUrl(pairingUrl)
     const identity = await this.identity.getIdentity()
     const label = requestedLabel?.trim() || identity.label
     const claim = await this.post(target.origin, DEVICE_PAIRING_PATHS.claim, {
@@ -249,6 +266,7 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
 
   /** Remove all native connection state and the Keystore identity. */
   async reset(): Promise<void> {
+    await this.close()
     this.sessionCredential = undefined
     this.authentication = undefined
     this.binding = undefined
@@ -256,11 +274,13 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
     this.closed = false
   }
 
-  /** Clear process credentials without deleting the paired Keystore identity. */
-  close(): void {
+  /** Abort and await transport work without deleting the paired Keystore identity. */
+  async close(): Promise<void> {
     this.closed = true
     this.sessionCredential = undefined
     this.authentication = undefined
+    for (const controller of this.controllers) controller.abort()
+    await Promise.allSettled(this.inFlight)
   }
 
   private async authenticatedPost<T>(path: string, payload: unknown, parser: Parser<T>): Promise<T> {
@@ -276,7 +296,7 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
     const send = async (credential: string): Promise<Response> => {
       const headers = new Headers(init?.headers)
       headers.set('authorization', `DSH-Native ${credential}`)
-      return await globalThis.fetch(input, { ...init, headers })
+      return await this.fetchRequest(input, { ...init, headers })
     }
     if (this.sessionCredential === undefined) await this.authenticate()
     let credential = this.requireSession()
@@ -297,17 +317,53 @@ export class NativeConnectionClient implements CompanionDeviceTrustClient {
     extraHeaders: Record<string, string> = {},
   ): Promise<T> {
     if (this.closed) throw new DeviceTrustClientError('closed', 'Android 连接已经关闭')
-    let response: Response
-    try {
-      response = await globalThis.fetch(new URL(path, origin), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...extraHeaders },
-        body: JSON.stringify(payload),
-      })
-    } catch (error) {
-      throw new DeviceTrustClientError('network', error instanceof Error ? error.message : '无法连接 Harness')
-    }
+    const response = await this.fetchRequest(new URL(path, origin), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...extraHeaders },
+      body: JSON.stringify(payload),
+    })
     return await parseJson(response, parser)
+  }
+
+  private fetchRequest(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    if (this.closed) return Promise.reject(new DeviceTrustClientError('closed', 'Android 连接已经关闭'))
+    const controller = new AbortController()
+    const externalSignal = init?.signal
+    const abortFromCaller = (): void => { controller.abort() }
+    if (externalSignal?.aborted) controller.abort()
+    else externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
+    this.controllers.add(controller)
+    let timedOut = false
+    const timer = globalThis.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, this.requestTimeoutMs)
+    const operation = globalThis.fetch(input, { ...init, signal: controller.signal })
+      .catch((error: unknown) => {
+        if (timedOut) {
+          throw new DeviceTrustClientError(
+            'network',
+            '连接电脑超时，请检查 Companion Host 和 Tailscale 后重试',
+            undefined,
+            'request-timeout',
+          )
+        }
+        if (this.closed || externalSignal?.aborted) {
+          throw new DeviceTrustClientError('closed', 'Android 连接已经关闭')
+        }
+        throw new DeviceTrustClientError(
+          'network',
+          error instanceof Error ? error.message : '无法连接 Harness',
+        )
+      })
+      .finally(() => {
+        globalThis.clearTimeout(timer)
+        externalSignal?.removeEventListener('abort', abortFromCaller)
+        this.controllers.delete(controller)
+        this.inFlight.delete(operation)
+      })
+    this.inFlight.add(operation)
+    return operation
   }
 
   private requireBinding(): NativeConnectionBinding {

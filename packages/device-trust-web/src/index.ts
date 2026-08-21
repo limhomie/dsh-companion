@@ -17,7 +17,7 @@ import {
   type PendingPairingResponse,
   type PollPairingResponse,
   type TrustedDeviceResponse,
-} from '@deepseek-ai/dsh-device-trust-connection'
+} from '@dsh-companion/device-trust-connection'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { FormEvent } from 'react'
 import {
   ArrowUp,
@@ -10,8 +10,10 @@ import {
   Clock3,
   Folder,
   LoaderCircle,
+  Maximize2,
   Menu,
   MessageSquare,
+  Minimize2,
   Plus,
   Play,
   ShieldCheck,
@@ -28,6 +30,7 @@ import type {
   ConversationSnapshot,
   PendingInteraction,
   SessionFace,
+  SessionId,
   SessionSummary,
   WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -35,6 +38,7 @@ import { SessionCreateError, workspaceTitleOf } from '@deepseek-ai/dsh-client-ru
 import type { RouteProps } from '@dsh-companion/ui-shell'
 import type { CompanionDeviceTrust } from '@dsh-companion/device-trust-web'
 import { ConversationHistory } from './conversation.tsx'
+import { SessionViewCache } from './session-view-cache.ts'
 import {
   AgentPresetPicker,
   CommandMenuButton,
@@ -87,7 +91,14 @@ function summaryLabel(session: SessionSummary): string {
   return 'Session 当前没有运行中的任务'
 }
 
+class SessionCreateUiTimeout extends Error {
+  override readonly name = 'SessionCreateUiTimeout'
+}
+
 function sessionCreateError(cause: unknown): string {
+  if (cause instanceof SessionCreateUiTimeout) {
+    return '电脑响应较慢，尚未确认 Session；重试会继续同一个 Workspace 创建事务'
+  }
   if (cause instanceof SessionCreateError) {
     switch (cause.rpcError.code) {
       case 'forbidden': return '此设备没有新建 Session 的权限'
@@ -97,6 +108,20 @@ function sessionCreateError(cause: unknown): string {
     }
   }
   return cause instanceof Error ? cause.message : '无法创建 Session，请重试'
+}
+
+async function waitForSessionCreate<T>(operation: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => { reject(new SessionCreateUiTimeout()) }, 15_000)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 function WorkspacePicker({ sessions, workspaces, connection, connected, navigate, onClose }: {
@@ -113,6 +138,7 @@ function WorkspacePicker({ sessions, workspaces, connection, connected, navigate
   const [error, setError] = useState<string>()
   const [agentPreset, setAgentPreset] = useState<string>()
   const [presetLoading, setPresetLoading] = useState(true)
+  const [slowBaseline, setSlowBaseline] = useState(false)
   const choosePreset = useCallback((id: string | undefined) => { setAgentPreset(id) }, [])
   const setPresetBusy = useCallback((loading: boolean) => { setPresetLoading(loading) }, [])
 
@@ -121,11 +147,20 @@ function WorkspacePicker({ sessions, workspaces, connection, connected, navigate
     return () => { mounted.current = false }
   }, [])
 
+  useEffect(() => {
+    if (snapshot.phase === 'ready') {
+      setSlowBaseline(false)
+      return
+    }
+    const timer = window.setTimeout(() => { setSlowBaseline(true) }, 8_000)
+    return () => { window.clearTimeout(timer) }
+  }, [snapshot.phase])
+
   const connect = async (workspaceId: WorkspaceId): Promise<void> => {
     setCreating(workspaceId)
     setError(undefined)
     try {
-      const sessionId = await workspaces.connectWorkspace(workspaceId)
+      const sessionId = await waitForSessionCreate(workspaces.connectWorkspace(workspaceId))
       const summary = sessions.list.getSnapshot().byId[sessionId]
       if (agentPreset !== undefined && summary?.agentPreset !== agentPreset) {
         const response = await connection.api.agentPresets.select({ sessionId, agentPreset })
@@ -155,7 +190,10 @@ function WorkspacePicker({ sessions, workspaces, connection, connected, navigate
         onLoadingChange={setPresetBusy}
       />
       {snapshot.phase !== 'ready' ? (
-        <div className="workspace-picker-state"><LoaderCircle className="spin" aria-hidden="true" size={19} />正在读取电脑上的 Workspace</div>
+        <div className="workspace-picker-state">
+          {slowBaseline ? <CircleAlert aria-hidden="true" size={19} /> : <LoaderCircle className="spin" aria-hidden="true" size={19} />}
+          {slowBaseline ? 'Host 响应较慢，仍在等待 Workspace 基线' : '正在读取电脑上的 Workspace'}
+        </div>
       ) : snapshot.items.length === 0 ? (
         <div className="workspace-picker-state"><Folder aria-hidden="true" size={19} />请先在电脑 Harness 中注册 Workspace</div>
       ) : (
@@ -455,19 +493,25 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
   const [controlNotice, setControlNotice] = useState<{ text: string; error: boolean }>()
   const [commandHint, setCommandHint] = useState<string>()
   const [activeMenu, setActiveMenu] = useState<ComposerMenu>(null)
+  const [expanded, setExpanded] = useState(false)
   const controlsRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const queued = snapshot.queue.filter(item => item.placement === 'queued')
   const ordinary = snapshot.subagent === null
   const available = allowPrompt && ordinary && !snapshot.removed
   const text = draft.trim()
 
   useEffect(() => {
-    if (activeMenu === null) return
+    if (activeMenu === null && !expanded) return
     const dismiss = (event: PointerEvent): void => {
-      if (event.target instanceof Node && !controlsRef.current?.contains(event.target)) setActiveMenu(null)
+      if (activeMenu !== null && event.target instanceof Node && !controlsRef.current?.contains(event.target)) {
+        setActiveMenu(null)
+      }
     }
     const dismissWithKeyboard = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setActiveMenu(null)
+      if (event.key !== 'Escape') return
+      if (activeMenu !== null) setActiveMenu(null)
+      else if (expanded) setExpanded(false)
     }
     document.addEventListener('pointerdown', dismiss)
     document.addEventListener('keydown', dismissWithKeyboard)
@@ -475,7 +519,19 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
       document.removeEventListener('pointerdown', dismiss)
       document.removeEventListener('keydown', dismissWithKeyboard)
     }
-  }, [activeMenu])
+  }, [activeMenu, expanded])
+
+  useEffect(() => {
+    if (!expanded) return
+    document.body.classList.add('composer-expanded')
+    return () => { document.body.classList.remove('composer-expanded') }
+  }, [expanded])
+
+  const setComposerExpanded = (next: boolean): void => {
+    setActiveMenu(null)
+    setExpanded(next)
+    window.requestAnimationFrame(() => { textareaRef.current?.focus() })
+  }
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -517,7 +573,15 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
   }
 
   return (
-    <section className="prompt-composer" data-testid="prompt-composer">
+    <section className="prompt-composer" data-expanded={expanded} data-testid="prompt-composer">
+      {expanded && (
+        <header className="prompt-expanded-header">
+          <strong>编辑消息</strong>
+          <button className="icon-button" type="button" title="收起编辑器" aria-label="收起编辑器" onClick={() => { setComposerExpanded(false) }}>
+            <Minimize2 aria-hidden="true" size={19} />
+          </button>
+        </header>
+      )}
       {queued.length > 0 && (
         <ol className="prompt-queue" aria-label="等待执行的消息">
           {queued.map(item => <li key={item.id}>{item.preview || '无文字预览'}</li>)}
@@ -533,6 +597,7 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
         <form className="prompt-form" onSubmit={submit}>
           <div className="prompt-card" data-testid="prompt-card">
             <textarea
+              ref={textareaRef}
               aria-label="排队消息"
               placeholder={commandHint ?? '给智能体发消息'}
               rows={2}
@@ -567,6 +632,11 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
                 {queued.length > 0 && <span><Clock3 aria-hidden="true" size={14} />{queued.length} 条排队</span>}
               </div>
               <div className="prompt-command-buttons">
+                {!expanded && (
+                  <button className="composer-icon-button prompt-expand" type="button" title="展开编辑器" aria-label="展开编辑器" onClick={() => { setComposerExpanded(true) }}>
+                    <Maximize2 aria-hidden="true" size={17} />
+                  </button>
+                )}
                 <ModelMenu
                   session={session}
                   connection={connection}
@@ -599,17 +669,23 @@ function PromptComposer({ session, snapshot, connection, commands, connected, al
   )
 }
 
-function SessionConversation({ session, connection, commands, connected, allowInteractions, allowPrompt }: {
+const SessionConversation = memo(function SessionConversation({ session, connection, commands, connected, allowInteractions, allowPrompt, active }: {
   session: SessionFace
   connection: ConnectionHandle
   commands: CommandActions
   connected: boolean
   allowInteractions: boolean
   allowPrompt: boolean
+  active: boolean
 }) {
+  const subscribe = useCallback(
+    (listener: () => void) => active ? session.subscribe(listener) : () => {},
+    [active, session],
+  )
+  const getSnapshot = useCallback(() => session.getSnapshot(), [session])
   const snapshot = useSyncExternalStore(
-    listener => session.subscribe(listener),
-    () => session.getSnapshot(),
+    subscribe,
+    getSnapshot,
   )
   if (snapshot.openState === 'error') {
     return <div className="empty-state"><CircleAlert aria-hidden="true" size={28} /><strong>Session 加载失败</strong></div>
@@ -630,6 +706,21 @@ function SessionConversation({ session, connection, commands, connected, allowIn
       <PromptComposer session={session} snapshot={snapshot} connection={connection} commands={commands} connected={connected} allowPrompt={allowPrompt} />
     </div>
   )
+})
+
+function useSessionViewCache(activeId: SessionId | undefined, eligibleIds: readonly SessionId[]): readonly SessionId[] {
+  const cache = useMemo(() => new SessionViewCache<SessionId>(), [])
+  const [cachedIds, setCachedIds] = useState<readonly SessionId[]>(() => cache.getSnapshot())
+
+  useLayoutEffect(() => {
+    const next = activeId === undefined
+      ? cache.reconcile(eligibleIds)
+      : cache.activate(activeId, eligibleIds)
+    setCachedIds(current => current === next ? current : next)
+  }, [activeId, cache, eligibleIds])
+
+  useEffect(() => () => { cache.clear() }, [cache])
+  return cachedIds
 }
 
 function SessionDetail({ sessions, connection, commands, trust, rawId, openNavigation }: {
@@ -644,6 +735,7 @@ function SessionDetail({ sessions, connection, commands, trust, rawId, openNavig
   const decoded = decodeURIComponent(rawId)
   const id = list.ids.find(candidate => candidate === decoded)
   const host = useHost(connection)
+  const cachedIds = useSessionViewCache(id, list.ids)
   useSyncExternalStore(trust.subscribe, trust.getSnapshot)
 
   useEffect(() => {
@@ -678,15 +770,26 @@ function SessionDetail({ sessions, connection, commands, trust, rawId, openNavig
         <span><small>工作区</small>{workspaceLabel(summary.cwd)}</span>
         <span><small>连接</small>{host === undefined ? '只读' : '已同步'}</span>
       </div>
-      <SessionConversation
-        key={id}
-        session={binding.session}
-        connection={connection}
-        commands={commands}
-        connected={host !== undefined}
-        allowInteractions={trust.canAnswerInteractions()}
-        allowPrompt={trust.canPrompt()}
-      />
+      <div className="session-view-cache" data-cache-size={cachedIds.length} data-testid="session-view-cache">
+        {cachedIds.map(cachedId => {
+          const cachedBinding = sessions.binding(cachedId)
+          if (cachedBinding === undefined) return null
+          const active = cachedId === id
+          return (
+            <div className="session-view-cache-entry" data-session-cache-id={cachedId} hidden={!active} key={cachedId}>
+              <SessionConversation
+                active={active}
+                session={cachedBinding.session}
+                connection={connection}
+                commands={commands}
+                connected={host !== undefined}
+                allowInteractions={trust.canAnswerInteractions()}
+                allowPrompt={trust.canPrompt()}
+              />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

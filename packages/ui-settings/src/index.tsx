@@ -6,6 +6,7 @@ import {
   KeyRound,
   LoaderCircle,
   MonitorCog,
+  Network,
   QrCode,
   Settings,
   ShieldCheck,
@@ -20,7 +21,7 @@ import type {
   CreatePairingResponse,
   PendingPairingResponse,
   TrustedDeviceResponse,
-} from '@deepseek-ai/dsh-device-trust-connection'
+} from '@dsh-companion/device-trust-connection'
 import {
   type CompanionDeviceTrust,
   DeviceTrustClientError,
@@ -55,6 +56,7 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrust }) {
   const [revokeTarget, setRevokeTarget] = useState<string>()
   const [ownerTarget, setOwnerTarget] = useState<string>()
   const [error, setError] = useState<string>()
+  const activeDeviceCount = devices.filter(device => device.revokedAt === undefined).length
 
   const refreshDevices = async (): Promise<void> => {
     setDevices(await trust.client.devices())
@@ -164,7 +166,7 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrust }) {
     <>
       <button className="settings-action" type="button" disabled={working !== undefined} onClick={() => { void createOffer() }}>
         <span className="settings-icon"><QrCode aria-hidden="true" size={20} /></span>
-        <span><strong>配对新手机</strong><small>Session 只读权限</small></span>
+        <span><strong>生成手机配对二维码</strong><small>新设备默认仅查看，可在批准后单独提升权限</small></span>
         {working === 'create' ? <LoaderCircle className="spin" aria-label="正在创建" size={18} /> : <QrCode aria-hidden="true" size={18} />}
       </button>
 
@@ -174,8 +176,9 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrust }) {
         <div className="pairing-offer">
           <img src={qrDataUrl} alt="手机配对二维码" width="232" height="232" />
           <div>
-            <strong>手机扫码</strong>
+            <strong>等待手机扫描</strong>
             <span>{timeLabel(offer.expiresAt)} 前有效</span>
+            <code>{new URL(offer.pairingUrl).origin}</code>
           </div>
         </div>
       )}
@@ -193,6 +196,18 @@ function PairingAdministration({ trust }: { trust: CompanionDeviceTrust }) {
           </button>
         </div>
       ))}
+
+      <div className="settings-subheading">
+        <span>已配对设备</span>
+        <strong>{activeDeviceCount}</strong>
+      </div>
+
+      {devices.length === 0 && (
+        <div className="settings-row settings-empty-row">
+          <span className="settings-icon muted"><Smartphone aria-hidden="true" size={20} /></span>
+          <div><strong>还没有手机</strong><span>生成二维码后，在 Android App 中扫描</span></div>
+        </div>
+      )}
 
       {devices.map(device => (
         <Fragment key={device.deviceId}>
@@ -272,28 +287,29 @@ function SettingsPage({ connection, trust }: { connection: ConnectionHandle; tru
       </header>
 
       <section className="settings-section">
-        <h2>Host</h2>
+        <h2>手机访问</h2>
         <div className="settings-row host-row">
           <span className="settings-icon"><MonitorCog aria-hidden="true" size={20} /></span>
           <div>
-            <strong>{host === undefined ? '正在连接 DeepSeek Harness' : `DeepSeek Harness ${host.version}`}</strong>
-            <span>{host?.cwd ?? '等待 Host 握手'}</span>
+            <strong>{host === undefined ? '正在连接 Companion Host' : 'Companion Host 已连接'}</strong>
+            <span>{host === undefined ? '等待 Host 握手' : `DeepSeek Harness ${host.version} · ${host.cwd}`}</span>
           </div>
-          <span className="mode-label">{trust.fixture ? '演示数据' : '真实数据'}</span>
+          <span className="mode-label">{host === undefined ? '连接中' : '已就绪'}</span>
         </div>
         {host !== undefined && (
           <div className="settings-row">
-            <span className="settings-icon muted"><CheckCircle2 aria-hidden="true" size={20} /></span>
+            <span className="settings-icon muted"><Network aria-hidden="true" size={20} /></span>
             <div>
               <strong>{host.attachedSessions} 个已连接 Session</strong>
               <span>{host.provider === undefined ? 'Host 默认模型配置' : `${host.provider} / ${host.model ?? '默认模型'}`}</span>
             </div>
+            <span className="settings-data-label">{trust.fixture ? '演示数据' : '真实数据'}</span>
           </div>
         )}
-      </section>
-
-      <section className="settings-section">
-        <h2>设备信任</h2>
+        <div className="settings-subheading">
+          <span>设备信任</span>
+          <KeyRound aria-hidden="true" size={16} />
+        </div>
         {trust.fixture ? (
           <div className="settings-row">
             <span className="settings-icon muted"><KeyRound aria-hidden="true" size={20} /></span>

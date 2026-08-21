@@ -1,0 +1,41 @@
+# Companion-owned layer over the official web profile. The two legacy ids
+# exist only on the migration branch; unmatched patches are harmless on an
+# official profile and let one bundle validate both assemblies.
+- id: device-trust
+  disabled: true
+
+- id: device-trust-connection
+  disabled: true
+
+# The authenticated Connection extension accepts this deployment-owned
+# browser origin. A pre-extension official Connection rejects the config and
+# is already rejected by the Host compatibility check below.
+- id: connection
+  config:
+    trustedHosts: !!js ctx.webRuntime.trustedHosts
+    trustedOrigins: ['https://localhost']
+
+- insert:
+    # Compatibility owns the load barrier. The authentication Consumer below
+    # imports core-only symbols only after this row has accepted the Host.
+    - id: companion-web
+      name: '@dsh-companion/host'
+
+    - id: companion-device-trust
+      name: '@dsh-companion/host/device-trust-local'
+      config:
+        offerTtlMs: 600000
+        credentialTtlMs: 2592000000
+        maxPendingOffers: 4
+        maxClaimsPerOffer: 8
+        nativeChallengeTtlMs: 120000
+        nativeSessionTtlMs: 900000
+        maxPendingNativeChallenges: 16
+
+    - id: companion-device-trust-connection
+      name: '@dsh-companion/host/device-trust-connection'
+      config:
+        publicOrigin: !!js process.env.DSH_COMPANION_PUBLIC_ORIGIN
+        maxRequestBodyBytes: 16384
+        nativeWebSocketTicketTtlMs: 30000
+        maxPendingNativeWebSocketTickets: 16

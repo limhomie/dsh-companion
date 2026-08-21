@@ -4,6 +4,18 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@deepseek-ai/cordis': link:../deepseek-harness/vendor/cordis
+  '@deepseek-ai/dsh-action-source': link:../deepseek-harness/packages/identity/action-source
+  '@deepseek-ai/dsh-brand': link:../deepseek-harness/packages/util/brand
+  '@deepseek-ai/dsh-client-connection': link:../deepseek-harness/packages/client/connection
+  '@deepseek-ai/dsh-host-apiproxy': link:../deepseek-harness/packages/host/apiproxy
+  '@deepseek-ai/dsh-host-webserver': link:../deepseek-harness/packages/host/webserver
+  '@deepseek-ai/dsh-invariants': link:../deepseek-harness/packages/runtime-diagnostics/invariants
+  '@deepseek-ai/dsh-storage': link:../deepseek-harness/packages/storage/storage
+  '@deepseek-ai/dsh-storage-domain': link:../deepseek-harness/packages/storage/storage-domain
+  '@deepseek-ai/dsh-storage-json': link:../deepseek-harness/packages/storage/storage-json
+
 importers:
 
   .:
@@ -53,6 +65,9 @@ importers:
       '@capacitor/android':
         specifier: 8.5.0
         version: 8.5.0(@capacitor/core@8.5.0)
+      '@capacitor/barcode-scanner':
+        specifier: 3.1.1
+        version: 3.1.1(@capacitor/core@8.5.0)
       '@capacitor/core':
         specifier: 8.5.0
         version: 8.5.0
@@ -66,6 +81,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@capacitor/barcode-scanner':
+        specifier: 3.1.1
+        version: 3.1.1(@capacitor/core@8.5.0)
       '@capacitor/core':
         specifier: 8.5.0
         version: 8.5.0
@@ -90,6 +108,9 @@ importers:
       '@dsh-companion/conversation-projection':
         specifier: workspace:*
         version: link:../../packages/conversation-projection
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:*
+        version: link:../../packages/device-trust-connection
       '@dsh-companion/device-trust-web':
         specifier: workspace:*
         version: link:../../packages/device-trust-web
@@ -137,6 +158,73 @@ importers:
         specifier: link:../../../deepseek-harness/packages/client/ui-conversation
         version: link:../../../deepseek-harness/packages/client/ui-conversation
 
+  packages/device-trust:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-action-source':
+        specifier: link:../../../deepseek-harness/packages/identity/action-source
+        version: link:../../../deepseek-harness/packages/identity/action-source
+      '@deepseek-ai/dsh-brand':
+        specifier: link:../../../deepseek-harness/packages/util/brand
+        version: link:../../../deepseek-harness/packages/util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+        version: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+
+  packages/device-trust-connection:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-client-connection':
+        specifier: link:../../../deepseek-harness/packages/client/connection
+        version: link:../../../deepseek-harness/packages/client/connection
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: link:../../../deepseek-harness/packages/host/webserver
+        version: link:../../../deepseek-harness/packages/host/webserver
+      '@deepseek-ai/dsh-invariants':
+        specifier: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+        version: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.1
+        version: 3.18.1
+      '@dsh-companion/device-trust':
+        specifier: workspace:^
+        version: link:../device-trust
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/device-trust-local:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: link:../../../deepseek-harness/vendor/cordis
+        version: link:../../../deepseek-harness/vendor/cordis
+      '@deepseek-ai/dsh-invariants':
+        specifier: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+        version: link:../../../deepseek-harness/packages/runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-storage':
+        specifier: link:../../../deepseek-harness/packages/storage/storage
+        version: link:../../../deepseek-harness/packages/storage/storage
+      '@deepseek-ai/dsh-storage-domain':
+        specifier: link:../../../deepseek-harness/packages/storage/storage-domain
+        version: link:../../../deepseek-harness/packages/storage/storage-domain
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.1
+        version: 3.18.1
+      '@dsh-companion/device-trust':
+        specifier: workspace:^
+        version: link:../device-trust
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/dsh-storage-json':
+        specifier: link:../../../deepseek-harness/packages/storage/storage-json
+        version: link:../../../deepseek-harness/packages/storage/storage-json
+
   packages/device-trust-web:
     dependencies:
       '@deepseek-ai/cordis':
@@ -145,27 +233,36 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../../deepseek-harness/packages/client/connection
         version: link:../../../deepseek-harness/packages/client/connection
-      '@deepseek-ai/dsh-device-trust-connection':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
-        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:*
+        version: link:../device-trust-connection
 
   packages/host-web:
-    devDependencies:
+    dependencies:
       '@deepseek-ai/cordis':
         specifier: link:../../../deepseek-harness/vendor/cordis
         version: link:../../../deepseek-harness/vendor/cordis
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../../deepseek-harness/packages/client/connection
         version: link:../../../deepseek-harness/packages/client/connection
-      '@deepseek-ai/dsh-device-trust-connection':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
-        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
-      '@deepseek-ai/dsh-host-frontend-static':
-        specifier: link:../../../deepseek-harness/packages/host/frontend-static
-        version: link:../../../deepseek-harness/packages/host/frontend-static
+      '@deepseek-ai/dsh-host-apiproxy':
+        specifier: link:../../../deepseek-harness/packages/host/apiproxy
+        version: link:../../../deepseek-harness/packages/host/apiproxy
       '@deepseek-ai/dsh-host-webserver':
         specifier: link:../../../deepseek-harness/packages/host/webserver
         version: link:../../../deepseek-harness/packages/host/webserver
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.1
+        version: 3.18.1
+      '@dsh-companion/device-trust':
+        specifier: workspace:^
+        version: link:../device-trust
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:^
+        version: link:../device-trust-connection
+      '@dsh-companion/device-trust-local':
+        specifier: workspace:^
+        version: link:../device-trust-local
 
   packages/native-connection:
     dependencies:
@@ -175,12 +272,12 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../../deepseek-harness/packages/client/connection
         version: link:../../../deepseek-harness/packages/client/connection
-      '@deepseek-ai/dsh-device-trust':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust
-        version: link:../../../deepseek-harness/packages/identity/device-trust
-      '@deepseek-ai/dsh-device-trust-connection':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
-        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
+      '@dsh-companion/device-trust':
+        specifier: workspace:*
+        version: link:../device-trust
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:*
+        version: link:../device-trust-connection
       '@dsh-companion/device-trust-web':
         specifier: workspace:*
         version: link:../device-trust-web
@@ -205,9 +302,9 @@ importers:
 
   packages/ui-pairing:
     dependencies:
-      '@deepseek-ai/dsh-device-trust-connection':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
-        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:*
+        version: link:../device-trust-connection
       '@dsh-companion/device-trust-web':
         specifier: workspace:*
         version: link:../device-trust-web
@@ -280,9 +377,9 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: link:../../../deepseek-harness/packages/client/connection
         version: link:../../../deepseek-harness/packages/client/connection
-      '@deepseek-ai/dsh-device-trust-connection':
-        specifier: link:../../../deepseek-harness/packages/identity/device-trust-connection
-        version: link:../../../deepseek-harness/packages/identity/device-trust-connection
+      '@dsh-companion/device-trust-connection':
+        specifier: workspace:*
+        version: link:../device-trust-connection
       '@dsh-companion/device-trust-web':
         specifier: workspace:*
         version: link:../device-trust-web
@@ -877,6 +974,11 @@ packages:
     engines: {node: '>=10.3.0'}
     hasBin: true
 
+  '@capacitor/barcode-scanner@3.1.1':
+    resolution: {integrity: sha512-IftToRn2YTirzw2K8nkp+p7Mcq41vwcZyqcSYLUeyMbznJS2IbEj1snbRIcTXa+iSuAU6zKY7tNXzwDqyzcx+Q==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
   '@capacitor/cli@5.7.8':
     resolution: {integrity: sha512-qN8LDlREMhrYhOvVXahoJVNkP8LP55/YPRJrzTAFrMqlNJC18L3CzgWYIblFPnuwfbH/RxbfoZT/ydkwgVpMrw==}
     engines: {node: '>=16.0.0'}
@@ -925,6 +1027,12 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
+
+  '@deepseek-ai/cosmokit@1.8.2':
+    resolution: {integrity: sha512-muBOKtSrUKU5m/xpq8ZXWL6hQ/jgd4PhU2PqH97bcxIiLEJfNwZOGQEx4t/aS/GgxRAR+ra9pMHPMtTHU4sqqA==}
+
+  '@deepseek-ai/schemastery@3.18.1':
+    resolution: {integrity: sha512-Qn0FCSwCQnpnj6SB31I6i2sIKgKWnkbJM8O0EU91Gv2UsYVvtZTl6IA0sCwk2e2MZf5S8w5hpq9QkeVvK9qwxg==}
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -2434,6 +2542,9 @@ packages:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
+  html5-qrcode@2.3.8:
+    resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
+
   ico-endec@0.1.6:
     resolution: {integrity: sha512-ZdLU38ZoED3g1j3iEyzcQj+wAkY2xfWNkymszfJPoxucIUhK7NayQ+/C4Kv0nDFMIsbtbEHldv3V8PU494/ueQ==}
 
@@ -3726,6 +3837,9 @@ packages:
   yauzl@2.10.0:
     resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@adobe/css-tools@4.5.0': {}
@@ -4460,6 +4574,11 @@ snapshots:
       - react-native-b4a
       - supports-color
 
+  '@capacitor/barcode-scanner@3.1.1(@capacitor/core@8.5.0)':
+    dependencies:
+      '@capacitor/core': 8.5.0
+      html5-qrcode: 2.3.8
+
   '@capacitor/cli@5.7.8':
     dependencies:
       '@ionic/cli-framework-output': 2.2.8
@@ -4532,6 +4651,13 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
+
+  '@deepseek-ai/cosmokit@1.8.2': {}
+
+  '@deepseek-ai/schemastery@3.18.1':
+    dependencies:
+      '@deepseek-ai/cosmokit': 1.8.2
+      '@standard-schema/spec': 1.1.0
 
   '@emnapi/runtime@1.11.3':
     dependencies:
@@ -5958,6 +6084,8 @@ snapshots:
       '@exodus/bytes': 1.15.1
     transitivePeerDependencies:
       - '@noble/hashes'
+
+  html5-qrcode@2.3.8: {}
 
   ico-endec@0.1.6: {}
 
@@ -7432,3 +7560,5 @@ snapshots:
     dependencies:
       buffer-crc32: 0.2.13
       fd-slicer: 1.1.0
+
+  zod@4.4.3: {}

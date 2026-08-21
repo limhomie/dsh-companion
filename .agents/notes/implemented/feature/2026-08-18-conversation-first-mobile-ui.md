@@ -20,6 +20,8 @@ Conversation Renderer 遵循 Harness 网页端的内容语义。用户与中途�
 
 Composer 使用与网页版一致的一体化圆角容器：可增长的文本区位于上方，连接、Host 命令、权限、模型、推理等级和队列上下文位于底部工具行，发送或停止按钮固定在右下角。当前能力仍只允许纯文本 Queue Input，不展示尚未接入的附件操作。离开对话尾部时显示返回底部按钮。
 
+Composer 工具行增加展开图标。展开后仍使用同一个 `draft`、Operation id、菜单和提交事务，只把 Composer 作为覆盖当前 Session 工作面的全屏编辑层；文本区获得剩余高度，顶部提供收起操作，底部保留原工具行。展开和收起不卸载表单，不清空草稿，也不复制 Runtime 状态；发送成功后保持当前展开状态，用户可自行收起。Escape 先关闭打开的菜单，菜单关闭后再次 Escape 才收起编辑器。布局使用动态视口高度和安全区 inset，软键盘出现时控件仍在可见区域内。
+
 桌面 Companion 保留侧栏和文档流页面。认证、权限、Connection、Session Snapshot、Interaction、Prompt Operation id、取消与错误状态继续由现有 Runtime 和 UI Consumer 拥有；本改动不增加协议、持久状态或原生 API。
 
 Windows Chrome 同时启动多个 PWA 测试 Context 时会间歇中止首次 Service Worker 导航。Playwright 在 Windows 使用一个 Worker，其他平台保留六个 Worker；覆盖矩阵和每个场景保持不变。
@@ -42,11 +44,14 @@ Session 切换从独立列表页移入 Shell 拥有的左侧导航。Shell 继�
 
 **删除收件箱和设置。** 两者仍承载跨 Session 待办、设备信任和诊断，应该保留为辅助入口，而不是从产品中移除。
 
+**跳转到独立编辑 Route。** Route 切换会要求转移草稿、Operation id 和 Composer 菜单所有权，并可能在 Session 基线刷新时产生两个提交入口。覆盖当前工作面的私有展示状态可以保持单一事务所有者。
+
 ## Verification
 
 - `pnpm run typecheck`、`pnpm run lint` 和 15 个 Vitest 测试通过。
 - `pnpm run test:web` 构建 Web 与 Native 产物，并通过 48 个 Playwright 场景，另有 3 个按视口条件跳过；覆盖 390x844、430x932、1280x800 与 Android Shell 视口。
 - Fixture 流程证明根路径进入 Session、手机详情隐藏全局导航、Conversation 与 Composer 不重叠、返回后仍可进入收件箱，以及 Workspace 创建、首条消息和停止运行保持可用。
+- Composer Fixture 证明展开、收起、Escape 次序、草稿保持、菜单保持单一实例和全屏发送继续复用同一个 Operation id；390x844 与 430x932 检查软键盘前的稳定边界和无横向溢出。
 - Fixture 的 Markdown、用户字面量、Reasoning、Tool 成功与失败样本证明网页版内容层级在手机 Renderer 中保持语义，且 Tool 调用不会重复显示。
 - 390x844 与 430x932 截图检查长历史、审批、Tool、用户消息和底部 Composer，没有横向溢出或控件遮挡。
 - `pnpm android:apk` 使用 Capacitor 同步后的同一 UI 成功生成 Debug APK。Xiaomi 23013RK75C 覆盖安装、重新配对为 Owner、读取真实“手机对话已打通”历史并强制停止后冷启动；冷启动直接恢复 Session 列表，没有再次要求配对。

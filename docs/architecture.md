@@ -85,6 +85,8 @@ flowchart LR
 
 Harness serves the Companion web assets and boot manifest from the same trusted origin as its API. This mode is version-locked to the running Host and is the fastest path to a usable preview. It reuses the existing browser Connection carrier: unary operations use HTTP POST and live Host and interaction downlinks use WebSocket.
 
+The Companion-owned `@dsh-companion/host` bundle supplies these assets and the device-trust implementation. It joins the profile through the official `dsh plugin --profile web` lifecycle; the launcher then runs ordinary `dsh web` without generating a `--patch`. The bundle checks Harness package versions and authentication capabilities before publishing a load barrier for the authentication consumer. As of 2026-08-20 official `0.1.0-rc.8` does not satisfy that barrier, so source development still uses migration baseline `f652a3263943a26ebfa3f0945230c1f40884637d`.
+
 The web build may use the Host-selected browser plugin graph because the Host and web artifacts form one deployment. A production PWA still requires device authentication before non-loopback access is enabled.
 
 Before the official Client Runtime starts, the Harness Web entry reads the current device. Loopback and authenticated owners start the Host-selected official plugin graph; viewers and unauthenticated browsers enter `/companion/`. Companion resolves device trust before its own Runtime, renders pairing guidance for an explicit `device-unauthorized`, and sends an owner back to the official root. Network, protocol, and unexpected authorization failures remain boot errors.
@@ -118,7 +120,10 @@ apps/
   android/                   Capacitor 8 config, generated Android source, and native asset composition
   web/                       Harness Client plugin graph and responsive web entry
 packages/
-  host-web/                  Loopback-restricted /companion static Host plugin
+  host-web/                  Installable bundle, compatibility barrier, and /companion static entry
+  device-trust/              Paired-device trust Service Definition
+  device-trust-local/        Storage Domain-backed Provider
+  device-trust-connection/   Pairing protocol and authenticated Connection consumer
   device-trust-web/          React-free pairing HTTP client and Cordis service
   ui-shell/                  Route Registry and responsive Shell
   ui-inbox/                  Inbox derived from Harness SessionListState
@@ -129,18 +134,25 @@ scripts/
   build-android-debug.mjs    Cross-platform Gradle Debug APK launcher
   build-android-release.mjs  Signed universal APK and SHA-256 artifact launcher
   verify-harness.mjs         Exact checkout and version verification
-  start-harness.mjs          Patch generation and dsh web launcher
+  manage-host-plugin.mjs     Standard profile install, verification, and uninstall
+  start-harness.mjs          Ordinary dsh web launcher
 docs/
   architecture.md
+  architecture.zh.md
+  host-plugin.zh.md
   mobile.zh.md
 ```
 
-Prerelease development consumes public packages from a sibling Harness checkout and pins an exact version and commit. Companion no longer owns the Stage 0 connection DTOs, Fixture provider, or Session runtime; keyless tests use the official Harness Fixture.
+Prerelease development consumes public packages from a sibling Harness checkout and pins an exact version and commit. Companion owns the independently evolving device-trust definition, provider, consumer, and distribution bundle, but not Connection core, the API gateway, Session Runtime, or the Interaction protocol. Keyless tests use the official Harness Fixture.
 
 ### 5.2 Harness repository ownership
 
-The following security and protocol work belongs in `deepseek-harness`, not in Companion. Device trust, viewer/owner endpoint policy, authenticated actor provenance, and idempotent mutation handling remain Harness-owned; the remaining items are later capabilities:
+The following generic security and protocol extension points belong in `deepseek-harness`, not in Companion. The Companion device-trust consumer may use these public contracts; it must not copy Harness core into the bundle:
 
+- Connection authenticates a principal before HTTP, WebSocket, and Typert RPC dispatch and classifies targets through default-deny viewer, owner, and local-only policy.
+- API Proxy accepts a transport-independent principal id, trusted ActionSource, authorization query, and revocation-bound `AbortSignal`.
+- Session Prompt and Interaction Response accept stable operation ids and persist source plus deduplication at the authoritative event commit point.
+- Official Web distinguishes loopback, unpaired, viewer, and owner before constructing Client Runtime, or exposes an equivalent disposable boot extension.
 - Protocol version and capability fields in `host.describe`.
 - A publishable, wire-only client contract containing DTO types, parsers, error codes, and carrier interfaces.
 - Replay or fresh-baseline behavior for reconnecting independent clients.
@@ -155,7 +167,7 @@ Each new Harness capability is complete across its three roles.
 
 | Capability | Service Definition | Providers | Consumers |
 |---|---|---|---|
-| Device trust | Verify a device principal, inspect access, revoke trust | Local provider with browser credential digests and native P-256 public keys | Connection authentication and authorization |
+| Device trust | Companion defines device-principal verification, access, and revocation events | Companion local provider stores browser credential digests and native P-256 public keys | Companion consumer uses Harness's public Connection authentication and authorization contract |
 | Remote carrier | Carry authenticated request/response and downlink envelopes | Direct HTTP/WebSocket; outbound relay | API Gateway and event delivery |
 | Notifications | Deliver a secret-free attention signal to a registered device | Web Push; APNs/FCM adapter; disabled provider | Approval, question, failure, and turn-completion projector |
 
@@ -171,6 +183,8 @@ The client is divided into four layers:
 4. Platform plugins: implement web or Capacitor access to storage, notifications, QR scanning, camera input, deep links, and application lifecycle.
 
 Feature plugins depend on capability interfaces and UI slots rather than on Capacitor. Platform-specific behavior is injected, allowing the same feature package to run in the desktop browser, mobile browser, and native WebView.
+
+The current Session UI also has a view cache scoped to the Session Route lifecycle. It has a fixed capacity of three and retains only recently visited React trees, scroll positions, and component-private drafts. Inactive trees pause subscriptions and read the same Runtime snapshot when reactivated; eviction or Route unmount destroys them. This is not an independent Conversation snapshot or recoverable product state.
 
 ## 7. Protocol requirements
 
@@ -286,6 +300,8 @@ Harness is authoritative for all product state. Companion may persist:
 
 Companion does not persist model credentials, Host settings documents, permission defaults, complete workspace trees, or an independent session event log.
 
+The current recent-Session view cache is process-memory only and does not use the optional persistent presentation cache above. A first Session open still obtains its history baseline from the Host; the memory cache only avoids rebuilding an already rendered conversation tree when returning to a recent Session.
+
 When foregrounded after suspension, the app treats its connection as lost, reauthenticates, and requests resume or a fresh baseline before enabling actions. This accommodates mobile operating systems that suspend WebSockets in the background.
 
 ## 11. Mobile information architecture
@@ -312,7 +328,7 @@ The session screen contains:
 
 The layout uses one primary pane on phones. Session detail hides the global brand bar and bottom navigation, leaving a compact conversation header, a transcript that fills the remaining height, and a bottom composer; returning to the Session list restores the three top-level destinations. Tablet and desktop viewports may show session navigation beside the conversation, but the same plugins and state owners remain active.
 
-The conversation renderer follows the Harness Web client's semantic hierarchy: user input is literal text in a right-aligned bubble, assistant prose uses the shared `ui-primitives` Markdown renderer, and reasoning and tool activity use compact expandable trajectory rows. A completed tool call appears once with its authoritative result. The unified composer exposes only assembled capabilities; its visual similarity to the Web client does not imply attachments, model switching, or permission switching.
+The conversation renderer follows the Harness Web client's semantic hierarchy: user input is literal text in a right-aligned bubble, assistant prose uses the shared `ui-primitives` Markdown renderer, and reasoning and tool activity use compact expandable trajectory rows. A completed tool call appears once with its authoritative result. The unified composer can expand the same form into a full-screen editing layer without transferring ownership of the draft, menus, or operation id. It exposes only assembled capabilities; visual similarity to the Web client does not imply attachments.
 
 The single-pane Session places pending approvals, questions, and plan reviews before conversation history, so mutating actions do not depend on the history scroller's position.
 
@@ -380,7 +396,7 @@ An older Companion client may meet a newer Host plugin. Unknown session events r
 - Capacitor iOS packaging.
 - Android Keystore identity, signed challenge authentication, native HTTP, one-time WebSocket tickets, and shared Companion Runtime are implemented.
 - A native owner can choose a Host-registered Workspace, enter the blank Session that the Host creates or reuses, send its first prompt, and stop a running turn; viewer, disconnected, and no-Workspace states remain non-mutating.
-- QR scanner, native push, camera attachment, deep links, share target, and iOS Keychain remain pending.
+- The Android QR-scanner provider is implemented and shares HTTPS offer validation with the paste fallback; native push, camera attachment, deep links, share target, and iOS Keychain remain pending.
 - Signed static client plugin catalog and compatibility fallback.
 
 ### Phase 3: optional relay

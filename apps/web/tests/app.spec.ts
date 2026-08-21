@@ -11,6 +11,11 @@ async function visibleSessionNavigation(page: Page) {
   return navigation
 }
 
+async function openSession(page: Page, sessionId: string) {
+  const navigation = await visibleSessionNavigation(page)
+  await navigation.locator(`[data-session-id="${sessionId}"]`).click()
+}
+
 test('publishes an installable manifest and a Companion-scoped static cache', async ({ page, request }) => {
   const response = await request.get('/companion/manifest.webmanifest')
   expect(response.ok()).toBe(true)
@@ -153,6 +158,34 @@ test('opens the Session workspace from the Companion root', async ({ page }) => 
   const navigation = await visibleSessionNavigation(page)
   const routeId = decodeURIComponent(new URL(page.url()).pathname.split('/').at(-1) ?? '')
   await expect(navigation.locator(`[data-session-id="${routeId}"]`)).toHaveAttribute('aria-current', 'page')
+})
+
+test('restores a recent Session view without rebuilding its conversation', async ({ page }) => {
+  await page.goto('/companion/sessions/fx-alpha?fixture')
+  const alpha = page.locator('[data-session-cache-id="fx-alpha"]')
+  await expect(alpha.getByTestId('conversation-history')).toBeVisible()
+  await alpha.getByLabel('排队消息').fill('保留在这个 Session 的草稿')
+  const scrollTop = await alpha.getByTestId('conversation-scroll').evaluate(element => {
+    element.dataset.cacheProbe = 'original-alpha-view'
+    element.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight - 96)
+    return element.scrollTop
+  })
+
+  await openSession(page, 'fx-beta')
+  await expect(page).toHaveURL(/\/companion\/sessions\/fx-beta\?fixture$/)
+  await expect(alpha).toBeHidden()
+  await expect(page.locator('[data-session-cache-id="fx-beta"]')).toBeVisible()
+
+  await openSession(page, 'fx-alpha')
+  await expect(page).toHaveURL(/\/companion\/sessions\/fx-alpha\?fixture$/)
+  await expect(alpha).toBeVisible()
+  await expect(alpha.getByText('正在读取 Session', { exact: true })).toHaveCount(0)
+  await expect(alpha.getByLabel('排队消息')).toHaveValue('保留在这个 Session 的草稿')
+  expect(await alpha.getByTestId('conversation-scroll').evaluate(element => ({
+    probe: element.dataset.cacheProbe,
+    scrollTop: element.scrollTop,
+  }))).toEqual({ probe: 'original-alpha-view', scrollTop })
+  await expect(page.getByTestId('session-view-cache')).toHaveAttribute('data-cache-size', '2')
 })
 
 test('moves both mobile surfaces with slow drags and commits short flicks', async ({ page }) => {
@@ -530,6 +563,31 @@ test('starts a Workspace session, sends its first message, and stops the running
   expect(pageErrors).toEqual([])
 })
 
+test('expands the Composer without losing its draft or duplicating menu state', async ({ page }) => {
+  await page.goto('/companion/sessions/fx-alpha?fixture')
+  const composer = page.getByTestId('prompt-composer')
+  const textbox = page.getByRole('textbox', { name: '排队消息' })
+  const draft = '全屏编辑仍使用同一份草稿'
+  await textbox.fill(draft)
+
+  await page.getByRole('button', { name: '展开编辑器', exact: true }).click()
+  await expect(composer).toHaveAttribute('data-expanded', 'true')
+  await expect(textbox).toHaveValue(draft)
+  await expect(page.getByRole('button', { name: '收起编辑器', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: /模型，当前/ }).click()
+  await expect(page.getByRole('menu', { name: '模型与推理等级', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu', { name: '模型与推理等级', exact: true })).toHaveCount(0)
+  await expect(composer).toHaveAttribute('data-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(composer).toHaveAttribute('data-expanded', 'false')
+  await expect(textbox).toHaveValue(draft)
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
+
 test('explains that an empty Host needs a registered Workspace before a conversation can start', async ({ page }) => {
   await page.goto('/companion/sessions?fixture=empty')
 
@@ -625,7 +683,7 @@ test('guides an unpaired remote browser without starting the client runtime', as
 
   await page.goto('http://companion.test:4173/companion/')
   await expect(page.getByRole('heading', { name: '这台手机还没有配对', exact: true })).toBeVisible()
-  await expect(page.getByText('请在电脑端打开 Companion 设置，选择“配对新手机”，再用这台手机扫描二维码。', { exact: true })).toBeVisible()
+  await expect(page.getByText('请在电脑端打开 Companion 设置，选择“生成手机配对二维码”，再用这台手机扫描。', { exact: true })).toBeVisible()
   await expect(page.getByText('DSH Companion 启动失败', { exact: true })).toHaveCount(0)
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

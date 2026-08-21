@@ -7,8 +7,8 @@
   "dependencies": {
     "@capacitor/core": "8.5.0",
     "@deepseek-ai/dsh-client-connection": "link:../../../deepseek-harness/packages/client/connection",
-    "@deepseek-ai/dsh-device-trust": "link:../../../deepseek-harness/packages/identity/device-trust",
-    "@deepseek-ai/dsh-device-trust-connection": "link:../../../deepseek-harness/packages/identity/device-trust-connection",
+    "@dsh-companion/device-trust": "workspace:*",
+    "@dsh-companion/device-trust-connection": "workspace:*",
     "@dsh-companion/device-trust-web": "workspace:*"
   }
 }

@@ -85,6 +85,8 @@ flowchart LR
 
 Harness 从与 API 相同的可信 Origin 提供 Companion Web 资源和启动清单。该模式与当前 Host 版本绑定，是获得可用预览最快的路径。它复用现有浏览器 Connection 载体：单次操作使用 HTTP POST，Host 事件和交互事件的实时下行流使用 WebSocket。
 
+这些资源和设备信任实现由 Companion 仓库的 `@dsh-companion/host` Bundle 提供。Bundle 通过官方 `dsh plugin --profile web` 生命周期加入 profile；启动器随后运行普通 `dsh web`，不生成 `--patch`。Bundle 先校验 Harness Package 版本和认证能力，再发布加载屏障并启动认证 Consumer。截至 2026-08-20，官方 `0.1.0-rc.8` 没有满足该屏障；当前开发仍使用 `f652a3263943a26ebfa3f0945230c1f40884637d` 迁移基线。
+
 由于 Host 与 Web 产物属于同一部署，Web 构建可以继续使用 Host 选择的浏览器插件图。生产 PWA 在启用非回环地址访问前，仍然必须完成设备认证。
 
 官方 Client Runtime 启动前，Harness Web 入口读取当前设备。回环浏览器和认证 Owner 启动由 Host 选择的官方插件图；Viewer 与未认证浏览器进入 `/companion/`。Companion 会在自己的 Runtime 前解析设备信任，对明确的 `device-unauthorized` 显示配对说明，并把 Owner 送回官方根路径。网络、协议和非预期授权失败仍然属于启动错误。
@@ -118,7 +120,10 @@ apps/
   android/                   Capacitor 8 配置、生成的 Android 源码和原生资源组合
   web/                       Harness Client 插件图和响应式 Web 入口
 packages/
-  host-web/                  回环限制的 /companion 静态资源 Host 插件
+  host-web/                  可安装 Bundle、兼容屏障和 /companion 静态入口
+  device-trust/              配对设备信任 Service Definition
+  device-trust-local/        Storage Domain 持久 Provider
+  device-trust-connection/   配对协议与认证 Connection Consumer
   device-trust-web/          不依赖 React 的配对 HTTP 客户端与 Cordis Service
   ui-shell/                  Route Registry、Session 侧栏与响应式抽屉 Shell
   ui-inbox/                  从 Harness SessionListState 派生的收件箱
@@ -129,19 +134,25 @@ scripts/
   build-android-debug.mjs    跨平台 Gradle Debug APK 启动脚本
   build-android-release.mjs  已签名 Universal APK 与 SHA-256 产物脚本
   verify-harness.mjs         精确 checkout 与版本校验
-  start-harness.mjs          生成 patch 并启动 dsh web
+  manage-host-plugin.mjs     标准 profile 安装、核验与卸载
+  start-harness.mjs          启动普通 dsh web
 docs/
   architecture.md
   architecture.zh.md
+  host-plugin.zh.md
   mobile.zh.md
 ```
 
-预发布开发通过相邻的 Harness checkout 消费公开 Package，并锁定精确版本与提交。Companion 不再拥有 Stage 0 的 Connection DTO、Fixture Provider 或 Session Runtime；无密钥测试使用 Harness 官方 Fixture。
+预发布开发通过相邻的 Harness checkout 消费公开 Package，并锁定精确版本与提交。Companion 拥有可独立演进的设备信任 Definition、Provider、Consumer 和分发 Bundle，但不拥有 Connection 核心、API Gateway、Session Runtime 或 Interaction 协议；无密钥测试使用 Harness 官方 Fixture。
 
 ### 5.2 Harness 仓库职责
 
-以下安全与协议工作属于 `deepseek-harness`，不属于 Companion。设备信任、Viewer／Owner Endpoint 策略、认证操作者来源和幂等修改处理继续由 Harness 持有；其余是后续能力：
+以下通用安全与协议扩展点属于 `deepseek-harness`，不属于 Companion。Companion 的设备信任 Consumer 只能接入这些公开契约，不能把 Harness 核心复制进 Bundle：
 
+- Connection 在 HTTP、WebSocket 和 Typert RPC 分派前认证主体，并按默认拒绝的 Viewer、Owner、local-only 策略分类目标。
+- API Proxy 接收与载体无关的主体 id、可信 ActionSource、授权查询和随撤销终止的 `AbortSignal`。
+- Session Prompt 与 Interaction Response 接受稳定操作 id，并以权威持久事件作为提交点保存来源和去重结果。
+- 官方 Web 在构造 Client Runtime 前区分回环、未配对、Viewer 与 Owner，或提供等价的可卸载启动扩展点。
 - 在 `host.describe` 中增加协议版本和能力字段。
 - 提供一个可发布、只包含线协议的客户端契约，其中包含 DTO 类型、Parser、错误码和载体接口。
 - 独立客户端重连所需的事件重放或新基线机制。
@@ -156,7 +167,7 @@ Companion 必须消费这些契约，不能复制 Host 请求 Schema 并形成�
 
 | 能力 | Service Definition | Provider | Consumer |
 |---|---|---|---|
-| 设备信任 | 验证设备主体、查看访问级别、撤销信任 | 同时保存浏览器凭据摘要与原生 P-256 公钥的本地 Provider | Connection 认证与授权 |
+| 设备信任 | Companion 定义验证设备主体、访问级别与撤销事件 | Companion 的本地 Provider 保存浏览器凭据摘要与原生 P-256 公钥 | Companion Consumer 接入 Harness 的公开 Connection 认证与授权契约 |
 | 远程载体 | 传输经过认证的请求、响应和下行 Envelope | HTTP/WebSocket 直连；出站中继 | API Gateway 与事件传递 |
 | 通知 | 向已注册设备发送不含敏感信息的待处理信号 | Web Push；APNs/FCM 适配器；禁用 Provider | 审批、问题、失败和 Turn 完成事件投影器 |
 
@@ -172,6 +183,8 @@ Companion 必须消费这些契约，不能复制 Host 请求 Schema 并形成�
 4. 平台插件：实现 Web 或 Capacitor 的存储、通知、二维码扫描、相机输入、深层链接和应用生命周期访问。
 
 功能插件依赖能力接口和 UI Slot，而不直接依赖 Capacitor。平台相关行为通过注入提供，使相同的功能 Package 可以运行在电脑浏览器、手机浏览器和原生 WebView 中。
+
+当前 Session UI 另有一层只在 Session Route 生命周期内存在的视图缓存：容量固定为 3，只保留最近访问的 React 树、滚动位置和组件私有草稿。非活动树暂停订阅，激活时读取同一个 Runtime Snapshot；淘汰或 Route 卸载会销毁它。它不保存独立 Conversation Snapshot，也不属于可恢复的业务状态。
 
 ## 7. 协议要求
 
@@ -287,6 +300,8 @@ Harness 是所有产品状态的权威来源。Companion 可以持久保存：
 
 Companion 不保存模型 Credential、Host Settings 文档、默认权限、完整 Workspace Tree 或独立的 Session Event Log。
 
+当前最近 Session 视图缓存只存在于进程内存，不使用上述可选持久展示缓存。首次打开 Session 仍必须从 Host 取得历史基线；内存缓存仅避免切回最近会话时重建已渲染的对话树。
+
 应用从挂起状态回到前台时，将当前连接视为已断开；重新认证并完成恢复或获取新基线后，才重新启用操作。这与移动操作系统在后台挂起 WebSocket 的行为相容。
 
 ## 11. 移动端信息架构
@@ -313,7 +328,7 @@ Session 页面包含：
 
 手机布局只使用一个主面板。Session 详情隐藏全局品牌栏和底部导航，由紧凑会话顶栏、占满剩余高度的 Conversation 和底部常驻输入区组成；返回 Session 列表后恢复三个顶层入口。平板和桌面视口可以在 Conversation 旁显示 Session 导航，但继续使用相同的插件和状态所有者。
 
-Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输入作为字面文本显示在右侧气泡中，Agent 正文使用共享 `ui-primitives` Markdown Renderer，Reasoning 与 Tool 活动使用紧凑的可展开轨迹行。已完成 Tool 调用只与权威结果一起显示一次。一体化 Composer 从 Host 动态加载命令、权限 Projection、模型目录与模型提供的推理强度，并通过 Harness 既有命令或 Session API 写回；其他电脑或手机客户端重新读取相同 Host 状态。附件仍未接入。
+Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输入作为字面文本显示在右侧气泡中，Agent 正文使用共享 `ui-primitives` Markdown Renderer，Reasoning 与 Tool 活动使用紧凑的可展开轨迹行。已完成 Tool 调用只与权威结果一起显示一次。一体化 Composer 从 Host 动态加载命令、权限 Projection、模型目录与模型提供的推理强度，并通过 Harness 既有命令或 Session API 写回；其他电脑或手机客户端重新读取相同 Host 状态。Composer 可以把同一个表单展开为全屏编辑层，草稿、菜单和 Operation id 不转移所有权。附件仍未接入。
 
 单面板 Session 将待处理审批、问题和计划审阅放在 Conversation 历史之后、Composer 之前，使手机上的确认操作靠近输入区，同时保持历史记录独立滚动。
 
@@ -381,7 +396,7 @@ Conversation Renderer 遵循 Harness 网页客户端的内容层级：用户输�
 - 使用 Capacitor 打包 iOS。
 - Android Keystore 身份、签名 Challenge 认证、原生 HTTP、一次性 WebSocket Ticket 与共享 Companion Runtime 已实现。
 - 原生 Owner 可以选择 Host 已注册 Workspace、进入 Host 创建或复用的空白 Session、发送第一条消息并停止运行；Viewer、断线和无 Workspace 状态保持不可修改。
-- 二维码扫描器、原生推送、相机附件、深层链接、系统分享入口与 iOS Keychain 尚未实现。
+- Android 二维码扫描 Provider 已实现，并与粘贴降级入口共用 HTTPS Offer 校验；原生推送、相机附件、深层链接、系统分享入口与 iOS Keychain 尚未实现。
 - 签名静态客户端插件目录和兼容性降级。
 
 ### 阶段 3：可选中继

@@ -16,6 +16,7 @@ import {
   FilePenLine,
   LoaderCircle,
   Plus,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react'
@@ -70,6 +71,30 @@ function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
+const AGENT_PRESET_READ_TIMEOUT_MS = 8_000
+
+async function readWithTimeout<T>(read: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      read(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => { reject(new Error('读取 Agent 模式超时')) }, AGENT_PRESET_READ_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+async function readAgentPresets(connection: ConnectionHandle) {
+  try {
+    return await readWithTimeout(() => connection.api.agentPresets.list({}))
+  } catch {
+    return await readWithTimeout(() => connection.api.agentPresets.list({}))
+  }
+}
+
 export function AgentPresetPicker({ connection, disabled, onSelectionChange, onLoadingChange }: {
   connection: ConnectionHandle
   disabled: boolean
@@ -82,6 +107,7 @@ export function AgentPresetPicker({ connection, disabled, onSelectionChange, onL
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>()
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     mounted.current = true
@@ -93,7 +119,7 @@ export function AgentPresetPicker({ connection, disabled, onSelectionChange, onL
     setLoading(true)
     onLoadingChange(true)
     setError(undefined)
-    void connection.api.agentPresets.list({}).then((response) => {
+    void readAgentPresets(connection).then((response) => {
       if (!active || !mounted.current) return
       if (!response.result.ok) throw new Error(response.result.error.message)
       const available = response.result.value.presets
@@ -119,7 +145,7 @@ export function AgentPresetPicker({ connection, disabled, onSelectionChange, onL
       onLoadingChange(false)
     })
     return () => { active = false }
-  }, [connection, onLoadingChange, onSelectionChange])
+  }, [connection, onLoadingChange, onSelectionChange, reload])
 
   if (!loading && options.length === 0 && error === undefined) return null
   const selected = options.find(option => option.id === current)
@@ -162,7 +188,15 @@ export function AgentPresetPicker({ connection, disabled, onSelectionChange, onL
           })}
         </div>
       )}
-      {error !== undefined && <p className="inline-error" role="alert"><CircleAlert aria-hidden="true" size={15} />{error}</p>}
+      {error !== undefined && (
+        <p className="inline-error agent-preset-error" role="alert">
+          <CircleAlert aria-hidden="true" size={15} />
+          <span>{error}</span>
+          <button className="button secondary" type="button" disabled={loading} onClick={() => { setReload(value => value + 1) }}>
+            <RotateCcw aria-hidden="true" size={15} />重试
+          </button>
+        </p>
+      )}
     </div>
   )
 }

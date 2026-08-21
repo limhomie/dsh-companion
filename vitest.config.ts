@@ -4,9 +4,18 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     alias: {
-      '@deepseek-ai/dsh-device-trust-connection': resolve(
+      '@dsh-companion/device-trust': resolve(import.meta.dirname, 'packages/device-trust/src/index.ts'),
+      '@dsh-companion/device-trust-connection/host': resolve(
         import.meta.dirname,
-        '../deepseek-harness/packages/identity/device-trust-connection/src/protocol.ts',
+        'packages/device-trust-connection/src/index.ts',
+      ),
+      '@dsh-companion/device-trust-connection': resolve(
+        import.meta.dirname,
+        'packages/device-trust-connection/src/protocol.ts',
+      ),
+      '@dsh-companion/device-trust-local': resolve(
+        import.meta.dirname,
+        'packages/device-trust-local/src/index.ts',
       ),
     },
   },

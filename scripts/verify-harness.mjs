@@ -12,18 +12,26 @@ function fail(message) {
   throw new Error(`Harness checkout verification failed: ${message}`)
 }
 
-let manifest
-try {
-  manifest = JSON.parse(readFileSync(resolve(harnessRoot, 'package.json'), 'utf8'))
-} catch (error) {
-  fail(`expected a sibling checkout at ${harnessRoot} (${error instanceof Error ? error.message : String(error)})`)
+export function verifyHarnessCheckout() {
+  let manifest
+  try {
+    manifest = JSON.parse(readFileSync(resolve(harnessRoot, 'package.json'), 'utf8'))
+  } catch (error) {
+    fail(`expected a sibling checkout at ${harnessRoot} (${error instanceof Error ? error.message : String(error)})`)
+  }
+
+  if (manifest.version !== EXPECTED_VERSION) {
+    fail(`expected version ${EXPECTED_VERSION}, received ${String(manifest.version)}`)
+  }
+
+  const commit = execFileSync('git', ['-C', harnessRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  if (commit !== EXPECTED_COMMIT) fail(`expected commit ${EXPECTED_COMMIT}, received ${commit}`)
+  return { commit, version: manifest.version }
 }
 
-if (manifest.version !== EXPECTED_VERSION) {
-  fail(`expected version ${EXPECTED_VERSION}, received ${String(manifest.version)}`)
+const invokedPath = process.argv[1]
+if (invokedPath !== undefined && resolve(invokedPath) === fileURLToPath(import.meta.url)) {
+  verifyHarnessCheckout()
 }
-
-const commit = execFileSync('git', ['-C', harnessRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
-if (commit !== EXPECTED_COMMIT) fail(`expected commit ${EXPECTED_COMMIT}, received ${commit}`)
 
 export { EXPECTED_COMMIT, EXPECTED_VERSION, harnessRoot, projectRoot }
